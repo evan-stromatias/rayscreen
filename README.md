@@ -226,7 +226,6 @@ rayscreen source code is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE)
 
 ## TODO
 
-- [ ] Add GitHub Actions to run code-formatting checks on pull requests and the main branch.
-- [ ] Add GitHub Actions to run the test suite on pull requests and the main branch.
-- [ ] Automatically increment the package version based on the pull request title.
+- [x] Add GitHub Actions checks on pull requests: title prefix (`major: `/`minor: `/`patch: `), Ruff lint, and the test suite.
+- [x] Automatically increment the package version from the pull request title on merge, update the changelog, and tag the release.
 - [ ] Automate releases after version increments, including building distribution artifacts and creating a GitHub release.
