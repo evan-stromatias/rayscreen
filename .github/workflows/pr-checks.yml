@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   title:
-    name: Title starts with major:, minor: or patch:
+    name: "Title starts with major:, minor: or patch:"
     runs-on: ubuntu-latest
     steps:
       - name: Check the PR title
