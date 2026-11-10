@@ -1,0 +1,61 @@
+[project]
+name = "rayscreen"
+version = "0.42.3"
+description = "Composable screens, windows, and widgets for raygui and raylib."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+authors = [
+    { name = "Evan Stromatias", email = "evangelos.stromatias[at]gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "raylib==6.0.1.0",
+]
+
+[project.scripts]
+rayscreen-demo = "rayscreen.demo.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "rayscreen"
+source-include = ["src/rayscreen/assets/*.ttf", "docs/screenshots/*.png"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 180
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, bugbear, pyupgrade, simplifications
+select = ["E", "W", "F", "I", "B", "UP", "SIM"]
+ignore = [
+    "SIM108",  # ternaries are not always clearer than an if/else
+    "B905",  # zip(a, a[1:]) pairs neighbours; strict= would reject it
+    "SIM102",
+    "B007",
+    "B023",
+    "SIM110",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B008"]  # helper defaults read well in tests
+
+[tool.ruff.lint.isort]
+known-first-party = ["rayscreen"]
+
+[tool.ruff.format]
+quote-style = "double"
