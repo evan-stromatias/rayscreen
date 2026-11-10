@@ -1,3 +1,6 @@
+2026-11-10, 0.42.6:
+  - dummy PR
+
 2026-11-10, 0.42.5:
   - Add GitHub Actions checks on pull requests: title prefix (`major: `/`minor: `/`patch: `), Ruff lint, and the test suite
   - Add a merge-triggered release workflow that runs the tests, bumps the version from the PR title prefix,
