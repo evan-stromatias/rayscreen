@@ -1,3 +1,6 @@
+2026-11-10, 0.42.4:
+  - Measure test coverage with pytest-cov; `uv run pytest` prints a per-file report with missing lines
+
 2026-11-10, 0.42.3:
   - Add the pre-commit Ruff hook and its development dependency
 

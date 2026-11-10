@@ -14,3 +14,7 @@ dist/
 !docs/screenshots/*.png
 
 .claude/
+
+# Test coverage
+.coverage
+htmlcov/

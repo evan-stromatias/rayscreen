@@ -1,6 +1,6 @@
 [project]
 name = "rayscreen"
-version = "0.42.3"
+version = "0.42.4"
 description = "Composable screens, windows, and widgets for raygui and raylib."
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -28,11 +28,13 @@ source-include = ["src/rayscreen/assets/*.ttf", "docs/screenshots/*.png"]
 dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
+    "pytest-cov>=7.0.0",
     "ruff>=0.17.2",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=rayscreen --cov-report=term-missing"
 
 [tool.ruff]
 line-length = 180
