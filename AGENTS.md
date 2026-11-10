@@ -124,10 +124,12 @@ refer to documentation, packages, commands, or assets that are not part of this 
 
 ## Changelog and version
 
-For package changes, add an entry at the top of `CHANGELOG.md` and bump `version` in `pyproject.toml`,
-then run `uv lock` to refresh the lock file. Use semantic versioning. While the version is 0.x, bump the
-minor version for new features or breaking changes and the patch version for fixes, refactors, and
-documentation. Use the date of the change.
+Do not edit `CHANGELOG.md` or bump `version` in `pyproject.toml` by hand; the release workflow
+(`.github/workflows/release.yml`) handles both when a pull request merges. The PR title's
+`major: `/`minor: `/`patch: ` prefix drives the semantic-version bump — while the version is 0.x, minor
+covers new features and breaking changes and patch covers fixes, refactors, and documentation — and the
+changelog entry comes from the PR title and the PR body's bullet lines, dated at merge. The workflow
+commits the result and tags `v<version>` on main.
 
 Entries have this form:
 
@@ -136,3 +138,5 @@ YEAR-MONTH-DAY, SEMANTIC-VERSION:
   - brief description of change 1
   - brief description of change 2
 ```
+
+`scripts/release_bump.py` does the bookkeeping and is what to extend when the format changes.

@@ -1,3 +1,9 @@
+2026-11-10, 0.42.5:
+  - Add GitHub Actions checks on pull requests: title prefix (`major: `/`minor: `/`patch: `), Ruff lint, and the test suite
+  - Add a merge-triggered release workflow that runs the tests, bumps the version from the PR title prefix,
+    prepends the changelog entry (title plus PR-body bullets), refreshes `uv.lock`, and commits and tags
+    `v<version>` on main
+
 2026-11-10, 0.42.4:
   - Measure test coverage with pytest-cov; `uv run pytest` prints a per-file report with missing lines
 
