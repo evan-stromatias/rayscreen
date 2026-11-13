@@ -1,3 +1,14 @@
+2026-11-13, 0.45.0:
+  - larger text over part of a screen, and a scalable on-screen keyboard
+  - `Column` and `Row` take a `text_scale`: the text under them (labels, rich text, buttons, toggles, check boxes, sliders, text boxes, dropdowns, panel titles and the icons in a widget's text) is drawn at that scale, and default row heights and text-sized widths grow to fit
+  - `Button`, `Toggle`, `Slider` and `TextBox` take their own text `size`, which wins over the `text_scale` in force
+  - breaking: the default `height` of `Label`, `Button`, `Toggle`, `CheckBox`, `Slider`, `TextBox` and `Dropdown` is now `None` (`ROW` scaled with the text); a height given explicitly stays as given
+  - `layout.text_size()` gives the size a node's text is drawn at; `measure`, `arrange`, `natural_width` and `content_width` take the scale in force
+  - `KeyboardWindow(scale=...)` scales its keys, labels, icons, typed line, count, bottom row, gaps and width (2 for a TV)
+  - `Window(width=...)` sets a content-sized window's width; `WINDOW_WIDTH` is now exported from `specs`
+  - fix: a titled panel's content clears the lower half of its title under a large `text_scale`
+  - demo: the keyboard scene has a "Large (TV)" toggle and a new `keyboard-large` scene; README and screenshots updated
+
 2026-11-13, 0.44.0:
   - left and right keep to the row
   - Move the keys' and the pad's focus along the widget tree instead of by distance on screen alone. Left and right follow the focus's `Row` or `Split`, and up and down its `Column`, to the next part that holds a focusable widget, so a row keeps the focus however far away its next widget is.
