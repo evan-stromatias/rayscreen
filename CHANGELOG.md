@@ -1,3 +1,10 @@
+2026-11-13, 0.46.0:
+  - a count badge on a picture
+  - Add `Picture(badge=...)`: a short text such as a stack's count, drawn in the bottom right corner over the texture on a translucent plate of the theme's background
+  - The badge follows the dragged texture under the mouse, dims under a modal, and is not tinted by `tint`
+  - A picture's caption and badge grow with the `text_scale` in force; `layout.text_size()` gives their size
+  - The `drag` and `drag-held` demo scenes show badged stacks
+
 2026-11-13, 0.45.0:
   - larger text over part of a screen, and a scalable on-screen keyboard
   - `Column` and `Row` take a `text_scale`: the text under them (labels, rich text, buttons, toggles, check boxes, sliders, text boxes, dropdowns, panel titles and the icons in a widget's text) is drawn at that scale, and default row heights and text-sized widths grow to fit
