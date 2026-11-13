@@ -1,7 +1,8 @@
 """rayscreen-demo: the library's checking harness. Navigates the demo's screens; screenshots of
 each scene are how the visual work is checked (`--screen NAME --screenshot out.png`). `--mouse X,Y`
 holds the mouse at a point, for a tooltip; the `tooltip` and `menu` scenes put it on the villager, and `drag-held`
-over a box of the pack, its second thing dragged there.
+over a box of the pack, its second thing dragged there. A pad (and the arrow keys and Enter, while no box is being
+edited) moves the focus (`read_nav`).
 """
 
 import argparse
@@ -21,6 +22,7 @@ from rayscreen.demo.screens import (
     open_scene,
 )
 from rayscreen.draw import frame
+from rayscreen.navigation import Direction, Nav
 from rayscreen.screen import Screen, ScreenManager
 from rayscreen.theme import Theme
 
@@ -40,6 +42,7 @@ SCENES = (
     "drag",
     "drag-held",
     "chat",
+    "keyboard",
     "board",
     "files",
     "files-load",
@@ -56,6 +59,43 @@ def _unload_screen(screen: Screen) -> None:
 def _pop_to_scenes(manager: ScreenManager) -> None:
     while len(manager._stack) > 1 and not isinstance(manager.top, ScenesScreen):
         _unload_screen(manager.pop())
+
+
+_PAD = rl.GamepadButton
+_PAD_MOVES: tuple[tuple[int, Direction], ...] = (
+    (_PAD.GAMEPAD_BUTTON_LEFT_FACE_UP, "up"), (_PAD.GAMEPAD_BUTTON_LEFT_FACE_DOWN, "down"),
+    (_PAD.GAMEPAD_BUTTON_LEFT_FACE_LEFT, "left"), (_PAD.GAMEPAD_BUTTON_LEFT_FACE_RIGHT, "right"),
+)
+_KEY_MOVES: tuple[tuple[int, Direction], ...] = (
+    (rl.KeyboardKey.KEY_UP, "up"), (rl.KeyboardKey.KEY_DOWN, "down"),
+    (rl.KeyboardKey.KEY_LEFT, "left"), (rl.KeyboardKey.KEY_RIGHT, "right"),
+)
+
+
+def _editing(manager: ScreenManager) -> bool:
+    """A text box is being edited: the arrow keys and Enter are its."""
+    return any(screen.state.editing is not None or any(window.state.editing is not None for window in screen.windows)
+               for screen in manager.visible())
+
+
+def read_nav(manager: ScreenManager) -> Nav:
+    """The demo's bindings: the first pad's d-pad, face buttons and Start; and the arrow keys and Enter unless a box is
+    being edited. raylib names face buttons by where they sit on an Xbox pad (A bottom, B right, X left, Y top), so
+    the buttons go by the labels on such a pad: A activates, B goes back, Y types a space, X shifts."""
+    move: Direction | None = None
+    activate = back = space = shift = confirm = False
+    if rl.is_gamepad_available(0):
+        move = next((direction for button, direction in _PAD_MOVES if rl.is_gamepad_button_pressed(0, button)), None)
+        activate = rl.is_gamepad_button_pressed(0, _PAD.GAMEPAD_BUTTON_RIGHT_FACE_DOWN)
+        back = rl.is_gamepad_button_pressed(0, _PAD.GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)
+        space = rl.is_gamepad_button_pressed(0, _PAD.GAMEPAD_BUTTON_RIGHT_FACE_UP)
+        shift = rl.is_gamepad_button_pressed(0, _PAD.GAMEPAD_BUTTON_RIGHT_FACE_LEFT)
+        confirm = rl.is_gamepad_button_pressed(0, _PAD.GAMEPAD_BUTTON_MIDDLE_RIGHT)
+    if not _editing(manager):
+        move = move or next((direction for key, direction in _KEY_MOVES
+                             if rl.is_key_pressed(key) or rl.is_key_pressed_repeat(key)), None)
+        activate = activate or rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER)
+    return Nav(move=move, activate=activate, back=back, space=space, shift=shift, confirm=confirm)
 
 
 def build_scene(manager: ScreenManager, scene: str) -> None:
@@ -110,7 +150,7 @@ def main() -> None:
             if isinstance(screen, (DragScreen, GameScreen)):
                 screen.draw_world()
         top = manager.top
-        events = frame(manager, theme)
+        events = frame(manager, theme, read_nav(manager))
         for event in events:
             print(event)
             if event.screen == "scenes" and event.widget == "quit":

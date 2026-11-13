@@ -50,17 +50,18 @@ The import package is in `src/rayscreen/`:
   dropdowns and menus, scroll offsets, split positions, focus, and picture dragging.
 - `navigation.py`: keyboard/gamepad-style navigation through `Nav`. Spatial focus movement, dropdown
   and menu navigation, slider adjustments, and scrolling focused widgets into view are independent of
-  raylib input handling.
+  raylib input handling. A focused window sees the navigation first through `Window.navigate`.
 - `draw.py`: `frame(manager, theme)`, the per-frame walk that calls raygui and returns events no screen
   consumed. It also owns pointer routing, locking rules, overlays, popups, drag and drop, and the
   `mouse_free` check for application content beneath the UI.
 - `theme.py`: light and dark colours, text sizes, the bundled font, and raygui style application.
   `Theme.dark_theme()` creates a dark theme; `set_dark` switches an existing theme at runtime.
-- `icons.py`: additional icons drawn into free raygui icon slots.
+- `icons.py`: additional icons drawn into free raygui icon slots (250 to 255, all used now).
 - `display.py`: `HIGHDPI` for display scaling and `follow_wayland_mouse` for the raylib 6.0 Wayland
   pointer workaround. New application loops should account for both where applicable.
 - `data.py`: `data_tree`, which turns plain nested data into specification trees.
 - `file_window.py`: modal file and directory selection through `FileWindow`.
+- `keyboard_window.py`: the modal on-screen keyboard `KeyboardWindow`, for typing with a gamepad.
 - `demo/`: the `rayscreen-demo` checking harness and its scenes. Demo code may use the public or
   internal API, but must not introduce runtime dependencies beyond those declared in `pyproject.toml`.
 - `assets/`: package data loaded by rayscreen. The default monogram font lives here so installed wheels

@@ -38,7 +38,7 @@ from rayscreen.layout import (
     tooltip_size,
     wrap_text,
 )
-from rayscreen.navigation import Nav, focusables, into_view, list_step, menu_step, slid, step, visible
+from rayscreen.navigation import Nav, Typed, focusables, into_view, list_step, menu_step, slid, step, visible
 from rayscreen.screen import Drop, Event, Screen, ScreenManager, Window, dispatch, paused_through
 from rayscreen.specs import (
     CHECK,
@@ -158,9 +158,15 @@ def frame(manager: ScreenManager, theme: Theme, nav: Nav | None = None) -> list[
 def _navigate(manager: ScreenManager, screen: Screen, theme: Theme, nav: Nav, events: list[Event]) -> None:
     """Apply `nav` to the screen, or to its window that has the focus: move the focus (left and right move a focused
     slider instead), click it (a button's event, a toggle or check box flipped, a dropdown's list opened, a picture's
-    click or its menu opened beside it), back out of a closeable window; then ring the focus while it shows, with its
-    tooltip beside it. An open context menu takes the nav first (`_navigate_menu`), then an open dropdown list
-    (`_navigate_list`). The mouse moving or clicking hides the ring, the next ask brings it back."""
+    click or its menu opened beside it, a text box edited or its keyboard event), back out of a closeable window; then
+    ring the focus while it shows, with its tooltip beside it.
+
+    - An open context menu takes the nav first (`_navigate_menu`), then an open dropdown list (`_navigate_list`).
+    - The focused window then sees it (`Window.navigate`), with what was typed if it takes typing: its pad shortcuts
+      are its, and the nav it leaves moves the focus.
+    - While a text box is being edited, the nav is ignored: the keys are the box's, and a move would leave it
+      editing behind a ring somewhere else.
+    - The mouse moving or clicking hides the ring, the next ask brings it back."""
     window = screen.focus if screen.focus is not None and screen.focus in screen.windows else None
     root, state = (window.root, window.state) if window is not None else (screen.root, screen.state)
     delta = rl.get_mouse_delta()
@@ -174,6 +180,13 @@ def _navigate(manager: ScreenManager, screen: Screen, theme: Theme, nav: Nav, ev
     if state.open_list is not None:
         _navigate_list(manager, screen.id, root, state, theme, nav, events)
         return
+    if state.editing is not None:
+        return
+    if window is not None:
+        steered = window.navigate(nav, _typed() if window.typing else Typed())
+        nav = steered.nav
+        events.extend(Event(screen.id, widget, None) for widget in steered.clicks)
+        root = window.root  # the window may have rebuilt its tree
     nodes = focusables(root, state.scroll_offset)
     current = next((placed.node for placed in nodes if placed.node.id == state.focused), None)
     value = slid(current, nav.move) if isinstance(current, Slider) and nav.move is not None else None
@@ -199,6 +212,11 @@ def _navigate(manager: ScreenManager, screen: Screen, theme: Theme, nav: Nav, ev
         elif isinstance(focused, Dropdown):
             state.open_list = OpenList(focused.id, placed.rect, focused.choices, focused.current)
             return
+        elif isinstance(focused, TextBox) and focused.keyboard:
+            events.append(Event(screen.id, focused.id, None))
+        elif isinstance(focused, TextBox):
+            state.edit(focused)
+            return
         elif isinstance(focused, Picture) and focused.clickable:
             events.append(Event(screen.id, focused.id, None))
         elif isinstance(focused, Picture) and focused.menu is not None:
@@ -222,10 +240,21 @@ def _navigate(manager: ScreenManager, screen: Screen, theme: Theme, nav: Nav, ev
     if state.show_focus and visible(placed):
         x, y, width, height = placed.rect
         rl.draw_rectangle_lines_ex(rl.Rectangle(x - 3, y - 3, width + 6, height + 6), 2, theme.accent)
-        tooltip = None if isinstance(placed.node, CheckBox) else placed.node.tooltip
+        tooltip = None if isinstance(placed.node, (CheckBox, TextBox)) else placed.node.tooltip
         if tooltip is not None:  # what the mouse resting on it would show, beside its corner
             _draw_tooltip(tooltip, theme, float(rl.get_screen_width()), float(rl.get_screen_height()),
                           rl.Vector2(x + width, y + height))
+
+
+def _typed() -> Typed:
+    """What was typed on the physical keyboard this frame: its characters (raylib's queue, emptied), and Backspace
+    (held, it repeats) and Enter."""
+    characters: list[str] = []
+    while (codepoint := rl.get_char_pressed()) > 0:
+        characters.append(chr(codepoint))
+    backspace = rl.is_key_pressed(rl.KeyboardKey.KEY_BACKSPACE) or rl.is_key_pressed_repeat(rl.KeyboardKey.KEY_BACKSPACE)
+    enter = rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER) or rl.is_key_pressed(rl.KeyboardKey.KEY_KP_ENTER)
+    return Typed("".join(characters), backspace, enter)
 
 
 def _navigate_list(manager: ScreenManager, owner: str, root: Node, state: UiState, theme: Theme, nav: Nav,
@@ -1093,7 +1122,7 @@ class _Drawer:
                 with _disabled(not spec.enabled):
                     clicked = rl.gui_text_box(rect, shown, BUFFER, False)
                 if clicked and spec.enabled:
-                    state.editing, state.buffer = spec.id, shown
+                    state.edit(spec)
             if spec.invalid:
                 rl.draw_rectangle_lines_ex(rect, 2, self.theme.error)
 

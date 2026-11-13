@@ -17,6 +17,7 @@ from rayscreen.specs import (
     Row,
     Scroll,
     Slider,
+    TextBox,
     Toggle,
 )
 
@@ -80,6 +81,7 @@ def test_a_move_takes_the_widget_straight_that_way_over_a_nearer_one_aside():
 
 def test_nav_says_whether_anything_was_asked():
     assert not Nav().any and Nav(move="up").any and Nav(activate=True).any and Nav(back=True).any
+    assert Nav(delete=True).any and Nav(space=True).any and Nav(shift=True).any and Nav(confirm=True).any
 
 
 def scrolled_list(offset: float) -> list[Placed]:
@@ -123,3 +125,17 @@ def test_a_menu_s_focus_steps_over_the_disabled_items_and_stays_at_its_ends():
     assert menu_step(items, None, "down") == 0
     assert menu_step(items, 0, "down") == 2 and menu_step(items, 2, "down") == 2 and menu_step(items, 2, "up") == 0
     assert menu_step(items, 0, "left") == 0 and menu_step([MenuItem("x", "X", enabled=False)], None, "down") is None
+
+
+def test_down_from_a_tab_lands_on_the_wide_box_below_it_before_a_small_button_further_down():
+    # a creation screen's top: two tabs, then a name box beside its label, then a < > row
+    root = laid_out(Column(children=[
+        Row(children=[Toggle("tab.a", "Appearance", weight=1), Toggle("tab.b", "Outfit", weight=1)]),
+        Row(children=[Column(children=[Label("name.label", "Name")], width=120), TextBox("name", "", weight=1)]),
+        Row(children=[Column(children=[Label("gender.label", "Gender")], width=120), Button("gender.prev", "<", width=40), Label("gender", "Female", weight=1),
+                      Button("gender.next", ">", width=40)]),
+    ]))
+    nodes = focusables(root)
+    assert step(nodes, "tab.a", "down") == "name"  # its centre is far right of the tab's, but it lies straight below
+    assert step(nodes, "name", "down") == "gender.prev"  # both arrows lie below the box: the first in the row
+    assert step(nodes, "gender.next", "up") == "name"

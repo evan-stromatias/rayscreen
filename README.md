@@ -20,7 +20,7 @@ The demo also includes layered application content, floating windows, modal dial
 - **Composable layouts:** columns, rows, grids, tables, splits, panels, scroll views, fixed-aspect boards, and flexible spacers.
 - **Screens and windows:** stacked screens, overlays, modal dialogs, floating windows, dragging, resizing, minimizing, and focus management.
 - **Interactions:** tooltips, context menus, drag and drop, keyboard/gamepad-style navigation, and per-screen UI state.
-- **Utilities:** file and directory dialogs, data-driven tree rendering, light and dark themes, custom fonts, and display-scaling helpers.
+- **Utilities:** file and directory dialogs, an on-screen keyboard for gamepads, data-driven tree rendering, light and dark themes, custom fonts, and display-scaling helpers.
 - **Testable layout:** measuring and arrangement are separate from raylib drawing, with text measurement injected by the caller.
 
 ## Requirements
@@ -65,6 +65,7 @@ Available scenes are:
 - `tooltip`, `menu` — hover tooltips and context menus
 - `gallery`, `drag`, `drag-held`, `chat`, `board` — widgets and layout examples
 - `files`, `files-load`, `files-save` — file loading and directory selection
+- `keyboard` — a name field and the on-screen keyboard it opens for a gamepad
 
 Save a screenshot after the demo has drawn a few frames:
 
@@ -165,6 +166,16 @@ A screen can open any number of `Window` objects. Windows are modal by default; 
 
 One window per screen has keyboard focus. Clicking a window raises and focuses it, while closing the focused window restores the previous focus. Modal windows retain focus until closed.
 
+### Keyboard and gamepad navigation
+
+Pass `frame(manager, theme, nav)` a `Nav` built from the application's own key and gamepad bindings: a `move` direction, `activate`, and `back`. rayscreen moves a focus ring between enabled buttons, toggles, check boxes, dropdowns, sliders, text boxes, and actionable pictures by their positions on screen, and activating one does what a click would. Activating a text box edits it in place; a `TextBox(..., keyboard=True)` instead emits `Event(screen, box_id, None)` so the application can open an on-screen keyboard. A click still edits it in place.
+
+`KeyboardWindow` is a modal on-screen keyboard: the text typed so far with a caret and a count, a grid of keys (`QWERTY` by default, or any `KeyLayout`), and Shift, Space, Backspace, and OK. The pad moves over the keys (left and right keep to a row, wrapping at its ends) and activates them; `Nav`'s `delete`, `space`, `shift`, and `confirm` fields carry its other buttons, and `back` deletes the last character or cancels on an empty line. The mouse and a physical keyboard work while it is open, and only the layout's characters can be typed. OK gives `Event(screen, window_id, text)`, or, with `box=`, sets that text box and gives the box's own event; cancelling gives `Event(screen, window_id, None)`.
+
+![The on-screen keyboard over a character's name field](docs/screenshots/keyboard.png)
+
+A window can take the navigation first by overriding `Window.navigate(nav, typed)`, which returns a `Steered` with the navigation left for the focus and any of its own widgets to click.
+
 ### Events and input ownership
 
 `frame(manager, theme)` returns `Event` objects containing the originating screen, widget ID, value, and optional target. Screens and windows get the first opportunity to consume events; the application routes the rest.
@@ -173,7 +184,7 @@ For custom rendering or interactions underneath the UI:
 
 - `mouse_free(manager, screen, theme)` reports whether the pointer belongs to the application rather than a widget, window, popup, drag, or resize operation.
 - `manager.mouse_used` reports whether rayscreen consumed the current frame's press.
-- `keyboard_free(manager)` is false while a text box is being edited.
+- `keyboard_free(manager)` is false while a text box is being edited or an on-screen keyboard has the focus.
 - `manager.esc_used` reports whether rayscreen consumed Escape for editing or window navigation.
 
 These checks let an application handle world clicks, camera controls, shortcuts, or other custom input without conflicting with the UI.

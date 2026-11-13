@@ -19,6 +19,7 @@ from __future__ import annotations
 from collections.abc import Hashable, Sequence
 from dataclasses import dataclass
 
+from rayscreen.navigation import Nav, Steered, Typed
 from rayscreen.specs import Menu, Node, Tooltip, check_unique_ids, walk
 from rayscreen.state import OpenMenu, UiState
 
@@ -72,7 +73,10 @@ class Window:
     bottom-right corner; resizing it fixes its size (a content-sized window stops following its
     content). A window's `menu` is its context menu: a right-click on it, away from its widgets,
     opens it (a minimap's Close), as a screen's `menu` hook does over the screen itself. `position`, `drag_offset`, `resize_offset` and `minimized` are runtime state, filled
-    in by the drawing code."""
+    in by the drawing code. A window that sets `typing` takes the physical keyboard's characters while it has the
+    focus (`navigate` gets them), and the keys are not the app's meanwhile (`keyboard_free`)."""
+
+    typing = False
 
     def __init__(
         self,
@@ -128,6 +132,13 @@ class Window:
         """First chance at an event while this window is open on `screen`: True consumes an internal event, an `Event`
         replaces it (a dialog finishing with its result), False leaves it to the screen."""
         return False
+
+    def navigate(self, nav: Nav, typed: Typed) -> Steered:
+        """First look at the keys' or the pad's nav while this window has the focus, and at what was typed (only for
+        a `typing` window): the nav left for the focus to move and click, and widgets of its own to click. A window
+        with pad shortcuts (an on-screen keyboard's B deleting) takes them here. Called every frame it has the
+        focus; by default the nav passes untouched."""
+        return Steered(nav)
 
 
 class Screen:
@@ -323,9 +334,12 @@ class ScreenManager:
 
 
 def keyboard_free(manager: ScreenManager) -> bool:
-    """True when no text box of the visible screens, or of their windows, is being edited: the keys pressed are the
-    app's (a game's W walks the player), not the box's."""
+    """True when no text box of the visible screens, or of their windows, is being edited, and no `typing` window
+    (an on-screen keyboard) has the focus: the keys pressed are the app's (a game's W walks the player), not the
+    box's."""
     for screen in manager.visible():
         if screen.state.editing is not None or any(window.state.editing is not None for window in screen.windows):
+            return False
+        if screen.focus is not None and screen.focus.typing:
             return False
     return True

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pyray as rl
 
-from rayscreen import Button, Event, FileWindow, Label, ScreenManager, dispatch
+from rayscreen import Button, Event, FileWindow, KeyboardWindow, Label, ScreenManager, dispatch
 from rayscreen.demo.__main__ import SCENES
-from rayscreen.demo.screens import BUNDLE_FILES, FilesScreen, MainScreen, ScenesScreen, SettingsScreen
+from rayscreen.demo.screens import BUNDLE_FILES, FilesScreen, KeyboardScreen, MainScreen, ScenesScreen, SettingsScreen
 
 
 def test_scenes_screen_has_a_button_for_every_demo_scene():
@@ -100,3 +100,19 @@ def test_files_screen_reports_error_on_invalid_png(tmp_path: Path):
     status = screen.find("files.status")
     assert isinstance(status, Label) and status.tone == "error"
     screen.unload()
+
+
+def test_keyboard_screen_opens_the_keyboard_from_its_box_and_takes_its_ok():
+    manager = ScreenManager()
+    screen = KeyboardScreen(manager)
+    manager.push(screen)
+    assert dispatch(screen, [Event("keyboard", "name", None)]) == []  # the pad's A on the box
+    window = screen.window
+    assert isinstance(window, KeyboardWindow) and window.text == ""  # a blank name
+    assert dispatch(screen, [Event("keyboard", "name.keyboard.key.1.0", None), Event("keyboard", "name.keyboard.ok", None)]) == []
+    assert screen.window is None and screen.name == "Q"  # its first letter a capital
+    assert screen.find("name").text == "Q"
+    screen.open_keyboard()
+    screen.close_window()
+    assert dispatch(screen, [Event("keyboard", "name.keyboard", None)]) == []  # cancelled
+    assert screen.name == "Q"

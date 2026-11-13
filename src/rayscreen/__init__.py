@@ -14,6 +14,7 @@ from rayscreen.draw import drop_target, frame, mouse_free, release_drag
 from rayscreen.file_window import FileMode, FileWindow, format_size
 from rayscreen.geometry import Rect, place_beside
 from rayscreen.icons import MOON, SUN, icon_text
+from rayscreen.keyboard_window import QWERTY, KeyboardWindow, KeyLayout
 from rayscreen.layout import (
     arrange,
     board_rect,
@@ -28,7 +29,7 @@ from rayscreen.layout import (
     tooltip_size,
     wrap_text,
 )
-from rayscreen.navigation import Direction, Nav, focusables, step
+from rayscreen.navigation import Direction, Nav, Steered, Typed, focusables, step
 from rayscreen.screen import Drop, Event, PinnedTip, Screen, ScreenManager, Window, dispatch, keyboard_free
 from rayscreen.specs import (
     CHECK,
@@ -86,6 +87,7 @@ __all__ = [
     "MOON",
     "MIN_BUTTON",
     "PAD",
+    "QWERTY",
     "ROW",
     "SCROLLBAR",
     "SMALL",
@@ -107,6 +109,8 @@ __all__ = [
     "FileWindow",
     "Fill",
     "Grid",
+    "KeyLayout",
+    "KeyboardWindow",
     "Label",
     "ListView",
     "Menu",
@@ -126,6 +130,7 @@ __all__ = [
     "Separator",
     "Slider",
     "Span",
+    "Steered",
     "Split",
     "Swatch",
     "Table",
@@ -135,6 +140,7 @@ __all__ = [
     "Toggle",
     "Tone",
     "Tooltip",
+    "Typed",
     "Window",
     "arrange",
     "board_rect",
