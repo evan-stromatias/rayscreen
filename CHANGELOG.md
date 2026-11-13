@@ -1,3 +1,10 @@
+2026-11-13, 0.44.0:
+  - left and right keep to the row
+  - Move the keys' and the pad's focus along the widget tree instead of by distance on screen alone. Left and right follow the focus's `Row` or `Split`, and up and down its `Column`, to the next part that holds a focusable widget, so a row keeps the focus however far away its next widget is.
+  - At the end of a row, the focus moves into a row or panel beside it, or stays put, instead of jumping to a nearer-looking widget in another line. A `Table` moves as a column of its rows. A `Grid`, a `Board`, and moves no container around the focus handles still go by position on screen.
+  - Moving into a section lands on its first line that way, on the widget most level with where the focus came from.
+  - Add a `nav` demo scene, a character creation form that shows where each move goes from the focus, and a `--focus ID` demo option to start with the focus on a widget.
+
 2026-11-13, 0.43.0:
   - on-screen keyboard
   - Add `KeyboardWindow`, a modal on-screen keyboard for typing with a gamepad. It has a QWERTY key grid, a Shift key with caps lock, Space, Backspace and OK. The first letter is a capital, typing is limited to a maximum length, and only the layout's characters can be typed. The mouse and a physical keyboard also work.
