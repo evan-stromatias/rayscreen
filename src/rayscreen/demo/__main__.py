@@ -45,6 +45,7 @@ SCENES = (
     "drag-held",
     "chat",
     "keyboard",
+    "keyboard-large",
     "nav",
     "board",
     "files",

@@ -147,6 +147,7 @@ SCENE_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("drag-held", "Active drag ghost held under cursor"),
             ("chat", "Follow scroll & submit TextBox"),
             ("keyboard", "On-screen keyboard for a pad, from a TextBox"),
+            ("keyboard-large", "The keyboard and its form at a TV's text scale"),
             ("nav", "Character form moved through with the keys or a pad"),
             ("board", "Fixed-aspect Board with Placed slots"),
         ),
@@ -180,8 +181,8 @@ def open_scene(manager: ScreenManager, scene: str) -> None:
         manager.push(ChatScreen(manager))
     elif scene == "nav":
         manager.push(NavScreen(manager))
-    elif scene == "keyboard":
-        keyboard = KeyboardScreen(manager)
+    elif scene in ("keyboard", "keyboard-large"):
+        keyboard = KeyboardScreen(manager, large=scene == "keyboard-large")
         manager.push(keyboard)
         keyboard.open_keyboard()
     elif scene in ("files", "files-load", "files-save"):
@@ -916,29 +917,38 @@ class ChatScreen(Screen):
 
 NAME_LENGTH = 16  # the character creation screen's name field
 PAD_HINT = "Pad: A types, B deletes (cancels when empty), Y space, X shift, Start OK. Arrows and Enter work too."
+LARGE_FORM, LARGE_KEYBOARD = 1.5, 2.0  # the text scales of the form and of the keyboard, played from a sofa
 
 
 class KeyboardScreen(Screen):
     """A character creation screen's name field: a `keyboard` text box that a click edits in place and the pad's A
-    (or Enter) opens an on-screen keyboard for; the keyboard's OK sets the box and gives the box's own event."""
+    (or Enter) opens an on-screen keyboard for; the keyboard's OK sets the box and gives the box's own event. The
+    Large toggle shows the form at a `text_scale` (the heading, the hint and Back stay as they are) and the keyboard
+    at twice its size, as a game played on a TV would."""
 
-    def __init__(self, manager: ScreenManager) -> None:
+    def __init__(self, manager: ScreenManager, large: bool = False) -> None:
         self.manager = manager
         self.name = ""
+        self.large = large
         super().__init__("keyboard", self.tree(), margin=2 * PAD)
 
     def tree(self) -> Column:
-        return Column(children=[
-            Label("heading", "New character", size=32, height=48),
+        form = Column(children=[
             Row(children=[Label("name.label", "Name"), TextBox("name", self.name, keyboard=True, weight=1)]),
             Label("name.shown", f"You will be called {self.name}." if self.name else "You have no name yet.", tone="muted"),
+            Row(children=[Toggle("large", "Large (TV)", active=self.large), Fill()]),
+        ], gap=2 * GAP, text_scale=LARGE_FORM if self.large else None)
+        return Column(children=[
+            Label("heading", "New character", size=32, height=48),
+            form,
             Label("hint", PAD_HINT, size=SMALL, tone="muted", wrap=True),
             Fill(),
             Row(children=[Fill(), Button("back", "Back")]),
         ], gap=2 * GAP)
 
     def open_keyboard(self) -> None:
-        self.open(KeyboardWindow("name.keyboard", "Your name", self.name, max_length=NAME_LENGTH, box="name"))
+        scale = LARGE_KEYBOARD if self.large else 1.0
+        self.open(KeyboardWindow("name.keyboard", "Your name", self.name, max_length=NAME_LENGTH, box="name", scale=scale))
 
     def handle(self, event: Event) -> bool:
         if event.widget == "name" and event.value is None:  # the pad's A on the box
@@ -948,6 +958,9 @@ class KeyboardScreen(Screen):
             self.set_root(self.tree())
         elif event.widget == "name.keyboard":  # cancelled: the name stays
             pass
+        elif event.widget == "large" and isinstance(event.value, bool):
+            self.large = event.value
+            self.set_root(self.tree())
         elif event.widget == "back":
             self.manager.pop()
         else:

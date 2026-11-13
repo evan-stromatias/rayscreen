@@ -19,7 +19,10 @@ from rayscreen import (
     step,
 )
 from rayscreen.icons import CAPS_LOCK, SHIFT, SHIFT_ON
+from rayscreen.keyboard_window import KEY, LINE
+from rayscreen.layout import text_size
 from rayscreen.screen import ScreenManager
+from rayscreen.specs import GAP, SMALL, TEXT, WINDOW_WIDTH
 
 
 def measure(text: str, size: int) -> float:
@@ -211,3 +214,42 @@ def test_a_focused_keyboard_window_takes_the_keys():
     assert keyboard_free(manager)
     screen.open(KeyboardWindow("kb", "Name"))
     assert not keyboard_free(manager)
+
+
+def test_a_scaled_keyboard_doubles_its_keys_labels_line_and_bottom_row():
+    window = KeyboardWindow("kb", "Name", scale=2.0)
+    key, text, count = window.find("kb.key.0.0"), window.find("kb.text"), window.find("kb.count")
+    assert window.root.text_scale == 2.0 and window.width == 2 * WINDOW_WIDTH
+    assert (key.width, key.height) == (2 * KEY, 2 * KEY) == (80, 80)
+    assert text_size(key, window.root.text_scale) == 32
+    assert text_size(text, window.root.text_scale) == 2 * LINE == 64
+    assert text_size(count, window.root.text_scale) == 2 * SMALL
+    assert [window.find(f"kb.{name}").height for name in ("shift", "space", "backspace", "ok")] == [80] * 4
+    arrange(window.root, Rect(0, 0, 1000, 800), measure)
+    assert (key.rect.width, key.rect.height) == (80, 80)
+
+
+def test_an_unscaled_keyboard_lays_out_as_before():
+    window = KeyboardWindow("kb", "Name")
+    key, text = window.find("kb.key.0.0"), window.find("kb.text")
+    assert window.root.text_scale == 1.0 and window.root.gap == GAP and window.width == WINDOW_WIDTH
+    assert (key.width, key.height, key.size) == (KEY, KEY, None)
+    assert (text.size, text.height) == (LINE, LINE + 2 * GAP)
+    assert text_size(key, 1.0) == TEXT
+
+
+def test_the_focus_moves_over_a_scaled_keyboard_as_over_an_unscaled_one():
+    window = KeyboardWindow("kb", "Name", "a", scale=2.0)
+    arrange(window.root, Rect(0, 0, 1200, 800), measure)  # twice `laid_out`'s: everything lies where it did, twice as far
+    nodes = focusables(window.root)
+    assert step(nodes, "kb.key.0.0", "down") == "kb.key.1.0"
+    assert step(nodes, "kb.key.1.4", "right") == "kb.key.1.5"
+    assert step(nodes, "kb.key.3.0", "down") == "kb.space"
+    window.navigate(Nav(move="left"), Typed())
+    assert window.state.focused == "kb.key.0.9"
+    window.state.focused = "kb.shift"
+    visited = []
+    for _ in range(4):
+        window.navigate(Nav(move="right"), Typed())
+        visited.append(window.state.focused)
+    assert visited == ["kb.space", "kb.backspace", "kb.ok", "kb.shift"]

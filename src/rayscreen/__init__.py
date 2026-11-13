@@ -26,6 +26,7 @@ from rayscreen.layout import (
     natural_width,
     picture_rect,
     split_widths,
+    text_size,
     tooltip_size,
     wrap_text,
 )
@@ -46,6 +47,7 @@ from rayscreen.specs import (
     TOOLTIP_OFFSET,
     TOOLTIP_WIDTH,
     WINDOW_TITLE,
+    WINDOW_WIDTH,
     Board,
     Button,
     CheckBox,
@@ -97,6 +99,7 @@ __all__ = [
     "TOOLTIP_OFFSET",
     "TOOLTIP_WIDTH",
     "WINDOW_TITLE",
+    "WINDOW_WIDTH",
     "Board",
     "Button",
     "CheckBox",
@@ -165,6 +168,7 @@ __all__ = [
     "split_widths",
     "step",
     "place_beside",
+    "text_size",
     "tooltip_size",
     "wrap_text",
 ]

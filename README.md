@@ -65,7 +65,8 @@ Available scenes are:
 - `tooltip`, `menu` — hover tooltips and context menus
 - `gallery`, `drag`, `drag-held`, `chat`, `board` — widgets and layout examples
 - `files`, `files-load`, `files-save` — file loading and directory selection
-- `keyboard` — a name field and the on-screen keyboard it opens for a gamepad
+- `keyboard`, `keyboard-large` — a name field and the on-screen keyboard it opens for a gamepad, at normal size or
+  at a TV's (its form at `text_scale=1.5`, the keyboard at `scale=2`)
 - `nav` — a character creation form to move through with the keys or a gamepad, saying where each move goes
 
 Save a screenshot after the demo has drawn a few frames:
@@ -152,6 +153,8 @@ A screen's content is a tree of dataclasses from `rayscreen.specs`. Widgets and 
 
 Weighted children share remaining space. Fixed-size spacers, minimum split sizes, table column alignment, rich-text wrapping, and scroll padding provide finer control where needed.
 
+A `Column` or `Row` with `text_scale` draws the text under it larger (or smaller), down to the next container that sets its own: labels, rich text, and the text of buttons, toggles, check boxes, sliders, text boxes, dropdowns, and panel titles, with the icons in a widget's text. Default row heights and widths sized to text grow to fit; heights given explicitly, gaps, pads, and popups stay as they are. `Button`, `Toggle`, `Slider`, and `TextBox` also take their own text `size`, which wins over the scale. `layout.text_size()` gives the size a node's text is drawn at. The bundled font is drawn on a 16 px grid, so whole scales are the crispest.
+
 ### Screens and navigation
 
 A `Screen` contains a widget tree and may implement:
@@ -169,6 +172,8 @@ A `Screen` contains a widget tree and may implement:
 
 A screen can open any number of `Window` objects. Windows are modal by default; `modal=False` creates a floating window over a live screen. Options cover dragging, resizing, minimizing, close behaviour, borderless rendering, transparency, and pausing screen updates.
 
+A window sized to its content is `WINDOW_WIDTH` wide unless its `width` says otherwise.
+
 One window per screen has keyboard focus. Clicking a window raises and focuses it, while closing the focused window restores the previous focus. Modal windows retain focus until closed.
 
 ### Keyboard and gamepad navigation
@@ -177,9 +182,11 @@ Pass `frame(manager, theme, nav)` a `Nav` built from the application's own key a
 
 A move follows the widget tree. Left and right go along the focus's `Row` or `Split`, and up and down along its `Column`, to the next child that way that holds a focusable widget; a `Table` moves as a column of its rows. Entering a child, the focus lands on its first line that way, then on the widget most level with where it came from. At a row's end the focus leaves for an outer row or stays, rather than jumping to a nearer-looking widget in another line. A `Grid` or `Board` moves by its widgets' positions on screen, as does a move along an axis no container around the focus takes (right in a plain column). Activating a text box edits it in place; a `TextBox(..., keyboard=True)` instead emits `Event(screen, box_id, None)` so the application can open an on-screen keyboard. A click still edits it in place.
 
-`KeyboardWindow` is a modal on-screen keyboard: the text typed so far with a caret and a count, a grid of keys (`QWERTY` by default, or any `KeyLayout`), and Shift, Space, Backspace, and OK. The pad moves over the keys (left and right keep to a row, wrapping at its ends) and activates them; `Nav`'s `delete`, `space`, `shift`, and `confirm` fields carry its other buttons, and `back` deletes the last character or cancels on an empty line. The mouse and a physical keyboard work while it is open, and only the layout's characters can be typed. OK gives `Event(screen, window_id, text)`, or, with `box=`, sets that text box and gives the box's own event; cancelling gives `Event(screen, window_id, None)`.
+`KeyboardWindow` is a modal on-screen keyboard: the text typed so far with a caret and a count, a grid of keys (`QWERTY` by default, or any `KeyLayout`), and Shift, Space, Backspace, and OK. The pad moves over the keys (left and right keep to a row, wrapping at its ends) and activates them; `Nav`'s `delete`, `space`, `shift`, and `confirm` fields carry its other buttons, and `back` deletes the last character or cancels on an empty line. The mouse and a physical keyboard work while it is open, and only the layout's characters can be typed. OK gives `Event(screen, window_id, text)`, or, with `box=`, sets that text box and gives the box's own event; cancelling gives `Event(screen, window_id, None)`. `scale=2` doubles everything it lays out (keys, labels, icons, the typed line, gaps, and its width) for a pad played on a TV; it does not shrink to fit, so choose a scale whose window fits the screen.
 
 ![The on-screen keyboard over a character's name field](docs/screenshots/keyboard.png)
+
+![The on-screen keyboard at scale 2, for a TV](docs/screenshots/keyboard-large.png)
 
 A window can take the navigation first by overriding `Window.navigate(nav, typed)`, which returns a `Steered` with the navigation left for the focus and any of its own widgets to click.
 

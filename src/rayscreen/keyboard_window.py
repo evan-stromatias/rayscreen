@@ -21,14 +21,14 @@ from typing import Literal
 from rayscreen.icons import BACKSPACE, CAPS_LOCK, SHIFT, SHIFT_ON, icon_text
 from rayscreen.navigation import Nav, Steered, Typed
 from rayscreen.screen import Event, Screen, Window
-from rayscreen.specs import GAP, SMALL, Button, Column, Fill, Label, Node, Row, TextBox, Tooltip
+from rayscreen.specs import GAP, SMALL, WINDOW_WIDTH, Button, Column, Fill, Label, Node, Row, TextBox, Tooltip
 
 type KeyLayout = tuple[str, ...]  # the keys' rows, top first, one character a key
 type Shift = Literal["off", "once", "lock"]
 
 QWERTY: KeyLayout = ("1234567890", "qwertyuiop", "asdfghjkl-", "zxcvbnm,.'")
-KEY = 40.0  # a key's side
-LINE = 32  # the typed text's size: the font's 16 px grid, doubled
+KEY = 40.0  # a key's side, at a scale of 1
+LINE = 32  # the typed text's size, at a scale of 1: the font's 16 px grid, doubled
 _SHIFT_ICONS: dict[Shift, tuple[int, str]] = {"off": (SHIFT, "Shift"), "once": (SHIFT_ON, "Shift"), "lock": (CAPS_LOCK, "Caps lock")}
 
 
@@ -44,6 +44,11 @@ class KeyboardWindow(Window):
     - With a `box` (the id of the screen's `TextBox` the text is for), OK sets the box's text and the event is the
       box's own, `Event(screen.id, box, text)`, as leaving the box after typing in it gives: the app handles both
       alike. Cancelling still gives `Event(screen.id, window.id, None)` and leaves the box as it was.
+    - `scale` sizes everything the window lays out, for a pad played from a sofa (2: twice the size): the keys
+      (`KEY`), their labels and icons, the typed line (`LINE`) and its count, the bottom row, the gaps between them,
+      and the window's width. Its root is a `Column` with that `text_scale`. Whole scales are the crispest (the
+      font is drawn on a 16 px grid); the title bar stays at the theme's size. The window does not shrink to fit
+      the screen: choose a scale whose window fits (at 2 it is 1040 x 560 or so; a narrower screen squeezes the keys).
     """
 
     typing = True
@@ -60,6 +65,7 @@ class KeyboardWindow(Window):
         allow_empty: bool = False,
         box: str | None = None,
         capitalize: bool = True,
+        scale: float = 1.0,
     ) -> None:
         self.text = text[:max_length]
         self.max_length = max_length
@@ -68,9 +74,10 @@ class KeyboardWindow(Window):
         self.allow_empty = allow_empty
         self.box = box
         self.capitalize = capitalize
+        self.scale = scale
         self.shift: Shift = "once" if capitalize and not self.text else "off"
         self.characters = frozenset(" ").union(*layout, *(row.upper() for row in layout))
-        super().__init__(id, title, Column(children=[]), modal=True)
+        super().__init__(id, title, Column(children=[]), modal=True, width=WINDOW_WIDTH * scale)
         self.refresh()
         self.state.focused = self._key_id(0, 0)
 
@@ -133,26 +140,29 @@ class KeyboardWindow(Window):
         return node is not None and getattr(node, "enabled", False)
 
     def _build(self) -> Column:
+        """The window's tree at its `scale`: the labels' sizes and the buttons' text scale with the root's
+        `text_scale`; the sides, heights and gaps, given explicitly, are scaled here."""
         caret = "" if self.full else "_"
+        key, gap, line_height = KEY * self.scale, GAP * self.scale, (LINE + 2 * GAP) * self.scale
         line = Row(children=[
-            Label(f"{self.id}.text", self.text + caret, size=LINE, height=LINE + 2 * GAP, weight=1),
-            Label(f"{self.id}.count", f"{len(self.text)} / {self.max_length}", size=SMALL, height=LINE + 2 * GAP, tone="muted"),
-        ])
+            Label(f"{self.id}.text", self.text + caret, size=LINE, height=line_height, weight=1),
+            Label(f"{self.id}.count", f"{len(self.text)} / {self.max_length}", size=SMALL, height=line_height, tone="muted"),
+        ], gap=gap)
         rows: list[Node] = [line]
         for r, keys in enumerate(self.layout):
             buttons: list[Node] = [
-                Button(self._key_id(r, c), self.key(r, c), enabled=not self.full, width=KEY, height=KEY)
+                Button(self._key_id(r, c), self.key(r, c), enabled=not self.full, width=key, height=key)
                 for c in range(len(keys))
             ]
-            rows.append(Row(children=[Fill(), *buttons, Fill()]))
+            rows.append(Row(children=[Fill(), *buttons, Fill()], gap=gap))
         icon, name = _SHIFT_ICONS[self.shift]
         rows.append(Row(children=[
-            Button(f"{self.id}.shift", icon_text(icon), height=KEY, tooltip=Tooltip.text(f"{self.id}.shift", name)),
-            Button(f"{self.id}.space", "Space", enabled=not self.full, height=KEY, weight=1),
-            Button(f"{self.id}.backspace", icon_text(BACKSPACE), height=KEY, tooltip=Tooltip.text(f"{self.id}.backspace", "Backspace")),
-            Button(f"{self.id}.ok", self.ok_label, enabled=self.can_confirm, height=KEY),
-        ]))
-        return Column(children=rows)
+            Button(f"{self.id}.shift", icon_text(icon), height=key, tooltip=Tooltip.text(f"{self.id}.shift", name)),
+            Button(f"{self.id}.space", "Space", enabled=not self.full, height=key, weight=1),
+            Button(f"{self.id}.backspace", icon_text(BACKSPACE), height=key, tooltip=Tooltip.text(f"{self.id}.backspace", "Backspace")),
+            Button(f"{self.id}.ok", self.ok_label, enabled=self.can_confirm, height=key),
+        ], gap=gap))
+        return Column(children=rows, gap=gap, text_scale=self.scale)
 
     def refresh(self) -> None:
         """Rebuild the keys after the text or the shift changed; a focus left on a greyed key moves on to OK."""
