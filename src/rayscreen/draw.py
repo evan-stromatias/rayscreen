@@ -27,6 +27,7 @@ from rayscreen.layout import (
     POPUP_ROW,
     MenuSize,
     arrange,
+    badge_rect,
     elided,
     icon_scale,
     measure,
@@ -96,6 +97,7 @@ LEFT, RIGHT = rl.MouseButton.MOUSE_BUTTON_LEFT, rl.MouseButton.MOUSE_BUTTON_RIGH
 WHEEL_STEP = 30.0
 _TOOLTIP_STATE = UiState()  # a tooltip's widgets draw locked: their state is never kept
 GHOST_ALPHA = 0.8  # a dragged picture under the mouse: the boxes beneath show through a little
+BADGE_ALPHA = 0.7  # a picture's badge plate: the theme's background, the texture showing through a little
 
 
 class _Drawn(NamedTuple):
@@ -919,6 +921,18 @@ def _draw_ghost(dragging: Dragging, theme: Theme, mouse: rl.Vector2) -> None:
         return
     source = rl.Rectangle(0, 0, texture.width, -texture.height if dragging.flipped else texture.height)
     rl.draw_texture_pro(texture, source, rect, rl.Vector2(0, 0), 0.0, rl.fade(rl.WHITE, GHOST_ALPHA))
+    _draw_badge(dragging.badge, dragging.badge_size, rect, theme)
+
+
+def _draw_badge(badge: str, size: int, rect: rl.Rectangle, theme: Theme) -> None:
+    """A picture's badge in the bottom right corner of `rect`: the theme's ink at `size` (its small text, times the
+    text scale), on a rounded plate of its background, translucent, so it reads over any texture and in either theme."""
+    if not badge:
+        return
+    width = theme.text_width(badge, size)
+    plate = badge_rect(Rect(rect.x, rect.y, rect.width, rect.height), width, size)
+    rl.draw_rectangle_rounded(rl.Rectangle(*plate), 0.4, 4, rl.fade(theme.background, BADGE_ALPHA))
+    theme.draw_text(badge, plate.x + (plate.width - width) / 2, plate.y + 2, size, theme.ink)
 
 
 def _contains(rect: rl.Rectangle, point: rl.Vector2) -> bool:
@@ -950,7 +964,7 @@ class _Drawer:
 
     def _size(self, node: Node) -> int:
         """The size `node`'s text is drawn at, as the layout measured it but from the theme's text size."""
-        return text_size(node, self.scale, self.theme.text)
+        return text_size(node, self.scale, self.theme.text, self.theme.small)
 
     def _draw(self, node: Node) -> None:
         rect = rl.Rectangle(node.rect.x + self.ox, node.rect.y + self.oy, node.rect.width, node.rect.height)
@@ -1221,8 +1235,8 @@ class _Drawer:
                     self._emit(spec.id, spec.items[active[0]])
 
     def _picture(self, spec: Picture, rect: rl.Rectangle) -> None:
-        """The texture fitted into the rect (an empty frame without one, or while it is dragged — with its `caption`
-        inside, if it has one); a clickable picture is outlined while the mouse is over it, and a press on it emits
+        """The texture fitted into the rect with its badge (an empty frame without one, or while it is dragged — with its
+        `caption` inside, if it has one); a clickable picture is outlined while the mouse is over it, and a press on it emits
         its event. Its tooltip and menu
         are the drawer's while the mouse is over it, unlocked; a press on a picture with `drag` may start one (its
         click, if clickable, comes on release). While a drag runs, the `drop` picture under the mouse is outlined."""
@@ -1230,14 +1244,15 @@ class _Drawer:
             if not draw_it:
                 return
             frame = self.theme.accent if spec.accent else self.theme.muted
+            size = self._size(spec)  # of its caption and badge
             if spec.texture is None or spec.id == self.dragged:
                 rl.draw_rectangle_lines_ex(rect, 1, frame)
                 if spec.caption and spec.id != self.dragged:
-                    lines = wrap_text(spec.caption, max(rect.width - 2 * GAP, 10.0), self.theme.small, self.theme.text_width)
-                    top = rect.y + (rect.height - len(lines) * (self.theme.small + 4)) / 2
+                    lines = wrap_text(spec.caption, max(rect.width - 2 * GAP, 10.0), size, self.theme.text_width)
+                    top = rect.y + (rect.height - len(lines) * (size + 4)) / 2
                     for i, line in enumerate(lines):
-                        x = rect.x + (rect.width - self.theme.text_width(line, self.theme.small)) / 2
-                        self.theme.draw_text(line, x, top + i * (self.theme.small + 4) + 2, self.theme.small, self.theme.muted)
+                        x = rect.x + (rect.width - self.theme.text_width(line, size)) / 2
+                        self.theme.draw_text(line, x, top + i * (size + 4) + 2, size, self.theme.muted)
             else:
                 texture = spec.texture
                 source = rl.Rectangle(0, 0, texture.width, -texture.height if spec.flipped else texture.height)
@@ -1246,6 +1261,7 @@ class _Drawer:
                 rl.draw_texture_pro(texture, source, rl.Rectangle(*fitted), rl.Vector2(0, 0), 0.0, tint)
                 if spec.framed:
                     rl.draw_rectangle_lines_ex(rect, 1, frame)
+                _draw_badge(spec.badge, size, rect, self.theme)
             mouse = rl.get_mouse_position()
             if not _contains(rect, mouse):
                 return
@@ -1260,7 +1276,8 @@ class _Drawer:
             if spec.drag is not None:
                 if rl.is_mouse_button_pressed(LEFT):
                     self.pressed = Dragging(spec.id, spec.drag, spec.texture, spec.flipped, (rect.width, rect.height),
-                                            spec.clickable, (mouse.x, mouse.y))
+                                            spec.clickable, (mouse.x, mouse.y), badge=spec.badge,
+                                            badge_size=size)
                 if spec.clickable:
                     rl.draw_rectangle_lines_ex(rect, 2, self.theme.ink)
                 return

@@ -153,7 +153,7 @@ A screen's content is a tree of dataclasses from `rayscreen.specs`. Widgets and 
 
 Weighted children share remaining space. Fixed-size spacers, minimum split sizes, table column alignment, rich-text wrapping, and scroll padding provide finer control where needed.
 
-A `Column` or `Row` with `text_scale` draws the text under it larger (or smaller), down to the next container that sets its own: labels, rich text, and the text of buttons, toggles, check boxes, sliders, text boxes, dropdowns, and panel titles, with the icons in a widget's text. Default row heights and widths sized to text grow to fit; heights given explicitly, gaps, pads, and popups stay as they are. `Button`, `Toggle`, `Slider`, and `TextBox` also take their own text `size`, which wins over the scale. `layout.text_size()` gives the size a node's text is drawn at. The bundled font is drawn on a 16 px grid, so whole scales are the crispest.
+A `Column` or `Row` with `text_scale` draws the text under it larger (or smaller), down to the next container that sets its own: labels, rich text, the text of buttons, toggles, check boxes, sliders, text boxes, dropdowns, and panel titles, with the icons in a widget's text, and a picture's caption and badge. Default row heights and widths sized to text grow to fit; heights given explicitly, gaps, pads, and popups stay as they are. `Button`, `Toggle`, `Slider`, and `TextBox` also take their own text `size`, which wins over the scale. `layout.text_size()` gives the size a node's text is drawn at. The bundled font is drawn on a 16 px grid, so whole scales are the crispest.
 
 ### Screens and navigation
 
@@ -207,7 +207,7 @@ These checks let an application handle world clicks, camera controls, shortcuts,
 
 Call custom drawing before `frame()` to place it behind the UI. rayscreen then draws visible screens, windows, menus, and tooltips in layers, with locked controls beneath overlays and modal windows. Scroll content is scissored to its viewport.
 
-A `Picture` can also display an application-owned raylib texture or render texture inside the widget tree. Texture storage and lifetime remain the application's responsibility.
+A `Picture` can also display an application-owned raylib texture or render texture inside the widget tree. Texture storage and lifetime remain the application's responsibility. Its `badge` writes a short text such as a stack's count in the bottom right corner over the texture; the badge follows the texture through a drag and dims with it under a modal.
 
 ### State and themes
 

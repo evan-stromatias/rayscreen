@@ -772,13 +772,14 @@ def _positive(text: str) -> bool:
 DRAG_BOX = 48.0  # pixels: a box of the drag scene's pack
 DRAG_COLUMNS = 6
 THINGS = ("Apple", "Loaf", "Cheese", "Pumpkin", "Rope", "Lamp", "Key")
+STACKS = {"Apple": "128", "Loaf": "7", "Rope": "3"}  # the badges of the things that come in stacks
 
 
 class DragScreen(Screen):
     """Drag and drop: a pack's window, 6 boxes across in a scroll, the things in it laid out in their order and
-    empty boxes after. A thing dragged onto another box moves to that place (onto an empty one: last); let go off
-    the window, it is dropped onto the screen, where the mouse let go; a right-click on it offers Drop; Esc cancels
-    a drag. `held` keeps a drag of the second thing going, for a screenshot: the mouse cannot be held down from a
+    empty boxes after, the stacks badged with their counts. A thing dragged onto another box moves to that place (onto
+    an empty one: last); let go off the window, it is dropped onto the screen, where the mouse let go; a right-click on
+    it offers Drop; Esc cancels a drag. `held` keeps a drag of the second thing going, for a screenshot: the mouse cannot be held down from a
     script."""
 
     def __init__(self, manager: ScreenManager, held: bool = False) -> None:
@@ -803,13 +804,13 @@ class DragScreen(Screen):
             tooltip = Tooltip.text(name, name, f"Box {i + 1}") if name is not None else None
             menu = Menu("box.menu", [MenuItem("drop", "Drop")], title=name, target=name) if name is not None else None
             boxes.append(Picture(f"box.{i}", self.textures.get(name or ""), (64, 64), drag=name, drop=True, framed=True,
-                                 tooltip=tooltip, menu=menu, height=DRAG_BOX))
+                                 badge=STACKS.get(name or "", ""), tooltip=tooltip, menu=menu, height=DRAG_BOX))
         return Scroll("pack.scroll", Grid(boxes, cell=DRAG_BOX, columns=DRAG_COLUMNS), weight=1)
 
     def update(self, dt: float) -> None:
         if self.held and self.state.dragging is None:
             self.state.dragging = Dragging("box.1", self.pack[1], self.textures[self.pack[1]], False, (DRAG_BOX, DRAG_BOX),
-                                           False, (0.0, 0.0), started=True)
+                                           False, (0.0, 0.0), started=True, badge=STACKS.get(self.pack[1], ""))
 
     def handle(self, event: Event) -> bool:
         if isinstance(event.value, Drop):

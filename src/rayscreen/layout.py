@@ -21,6 +21,7 @@ from rayscreen.specs import (
     ROW,
     SCROLL_BORDER,
     SCROLLBAR,
+    SMALL,
     TEXT,
     Board,
     Button,
@@ -70,12 +71,15 @@ def scaled(size: float, scale: float) -> int:
     return max(1, round(size * scale))
 
 
-def text_size(node: Node, scale: float = 1.0, base: int = TEXT) -> int:
-    """The size `node`'s text is drawn at under `scale`: a label's or a text's own `size` times it; a widget's own
-    `size` when given, else `base` (the theme's text) times it."""
+def text_size(node: Node, scale: float = 1.0, base: int = TEXT, small: int = SMALL) -> int:
+    """The size `node`'s text is drawn at under `scale`: a label's or a text's own `size` times it; a picture's caption
+    and badge, `small` (the theme's small text) times it; a widget's own `size` when given, else `base` (the theme's
+    text) times it."""
     match node:
         case Label() | Text():
             return scaled(node.size, scale)
+        case Picture():
+            return scaled(small, scale)
         case Button() | Toggle() | Slider() | TextBox() if node.size is not None:
             return node.size
     return scaled(base, scale)
@@ -445,6 +449,19 @@ def picture_rect(picture: Picture, rect: Rect) -> Rect:
     scale = min(rect.width / width, rect.height / height)
     w, h = width * scale, height * scale
     return Rect(rect.x + (rect.width - w) / 2, rect.y + (rect.height - h) / 2, w, h)
+
+
+BADGE_INSET = 3.0  # pixels between a picture's badge and the box's bottom right corner
+BADGE_PAD = 3.0  # pixels of the badge's plate either side of its text
+
+
+def badge_rect(rect: Rect, text_width: float, size: int) -> Rect:
+    """The plate of a picture's badge in `rect`: its text (`text_width` wide at `size`) padded, in the bottom right
+    corner inset by `BADGE_INSET`, and kept inside the box's left and top edges when the box is too small for it."""
+    w, h = min(text_width + 2 * BADGE_PAD, rect.width), min(size + 4.0, rect.height)
+    x = max(rect.x + rect.width - BADGE_INSET - w, rect.x)
+    y = max(rect.y + rect.height - BADGE_INSET - h, rect.y)
+    return Rect(x, y, w, h)
 
 
 def title_strip(panel: Panel, scale: float = 1.0) -> float:

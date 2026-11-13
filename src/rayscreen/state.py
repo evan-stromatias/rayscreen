@@ -15,7 +15,7 @@ from typing import Any
 import pyray as rl
 
 from rayscreen.geometry import Rect
-from rayscreen.specs import DRAG_START, Menu, Node, Split, TextBox, walk
+from rayscreen.specs import DRAG_START, SMALL, Menu, Node, Split, TextBox, walk
 
 BUFFER = 512  # bytes a text box holds
 FOLLOW_SLACK = 1.0  # pixels above its bottom a follow scroll still counts as at the bottom
@@ -54,8 +54,8 @@ class Hovered:
 @dataclass(slots=True)
 class Dragging:
     """A press on a picture with `drag`, held: the source picture's id, what it carries (`value`), its texture and
-    how it is drawn (`flipped`, at `ghost` pixels: its size on screen), whether it is `clickable`, and where the press
-    was. `started` once the mouse has moved `DRAG_START` pixels from there: until then, letting go is a click."""
+    how it is drawn (`flipped`, at `ghost` pixels: its size on screen, with its `badge` at `badge_size`), whether it is
+    `clickable`, and where the press was. `started` once the mouse has moved `DRAG_START` pixels from there: until then, letting go is a click."""
 
     source: str
     value: Hashable
@@ -65,6 +65,8 @@ class Dragging:
     clickable: bool
     at: tuple[float, float]
     started: bool = False
+    badge: str = ""
+    badge_size: int = SMALL
 
     def move(self, x: float, y: float) -> None:
         if not self.started and math.hypot(x - self.at[0], y - self.at[1]) >= DRAG_START:
