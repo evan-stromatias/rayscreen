@@ -4,6 +4,19 @@ Sizes default to the metrics below, so screens built from defaults line up. Any 
 shares out the space a `Column` or `Row` has left (0: just its natural size). The layout's arrange
 pass fills in every `rect`.
 
+A `Column` or `Row` with a `text_scale` draws everything under it in larger (or smaller) text, until a container
+sets its own (a screen's options pane in large type for a TV, the rest as it is):
+
+- Text: a `Label`'s or a `Text`'s `size`, a widget's text (the theme's `TEXT`) and a `Panel`'s title, times the
+  scale in force and rounded to whole pixels; a widget's own `size` (`Button`, `Toggle`, `Slider`, `TextBox`) wins
+  over it. The font is drawn on a 16 px grid, so whole scales are the crispest. Icons in a widget's text grow by
+  whole steps of raygui's icon scale, the nearest to the text's size.
+- Rows: a widget's default height (`height=None`: `ROW`) grows with its text, so the text fits, as a check box's
+  box (`CHECK`) does; a height given explicitly stays as given. Widths sized to their text (`MIN_BUTTON`) measure
+  at its size.
+- What stays: the gaps and pads, pictures, bars and swatches, a `ListView`'s rows, and the popups (an open
+  dropdown's list, tooltips, menus), drawn at the theme's size.
+
 `Tooltip` and `Menu` are not nodes: a screen's `hover` and `menu` hooks return them for what lies
 under the mouse (an entity in the game's world), and rayscreen draws them over everything.
 """
@@ -27,6 +40,7 @@ MIN_BUTTON = 80.0  # the narrowest a button sized to its text gets
 SCROLLBAR = 14.0
 SCROLL_BORDER = 1.0  # raygui's scroll panel border; its view is the bounds inset by this
 WINDOW_TITLE = 24.0  # raygui's window title bar
+WINDOW_WIDTH = 520.0  # a window sized to its content is never wider than this, unless it says otherwise
 TOOLTIP_WIDTH = 280.0  # the widest a tooltip grows before its text wraps
 TOOLTIP_OFFSET = 16.0  # from the cursor to the tooltip, clear of the arrow
 SPLIT_BAR = 8.0  # the width of a `Split`'s bar, which the mouse drags
@@ -45,11 +59,11 @@ class Label:
     way). A `tooltip` shows while the mouse rests on the label (what a field's name means), in place of
     the screen's `hover` hook's, as a picture's does. An `elide` label too long for its width gives up its
     start to "…" (a path, whose end says most), drawn where a weighted label would otherwise run over its
-    neighbours."""
+    neighbours. Its `size` is multiplied by the `text_scale` in force, and so is its default `height` (`ROW` when None)."""
 
     id: str
     text: str
-    height: float = ROW
+    height: float | None = None
     size: int = TEXT
     wrap: bool = False
     align: Literal["left", "center"] = "left"
@@ -96,7 +110,10 @@ class Button:
     narrow "<" in a crowded row). Its text is centred, or reads from the left with `align="left"` (a
     section's header in a long form, its titles down one edge). A `tooltip` says what an icon's button does,
     while the mouse rests on it. An `invalid` button (its value clashes with another's: a key bound twice) has
-    its border and text in the theme's error colour, and still clicks."""
+    its border and text in the theme's error colour, and still clicks.
+
+    Its text is the theme's size (times the `text_scale` in force), or `size` when given (a key's large label); a
+    larger text makes its default height (`ROW` when None), its least width and its icons larger with it."""
 
     id: str
     text: str
@@ -105,7 +122,8 @@ class Button:
     width: float | None = None
     align: Literal["left", "center"] = "center"
     tooltip: Tooltip | None = None
-    height: float = ROW
+    height: float | None = None
+    size: int | None = None
     weight: float = 0.0
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
 
@@ -114,14 +132,16 @@ class Button:
 class Toggle:
     """A pressed/released switch; emits the new `active`. Its text is centred, or reads from the left with
     `align="left"`. A `tooltip` shows while the mouse rests on it, as a button's (the key that does the same). One
-    that is not `enabled` is greyed and emits nothing (a setting the environment fixes)."""
+    that is not `enabled` is greyed and emits nothing (a setting the environment fixes). Its text `size` and
+    default `height` are a button's."""
 
     id: str
     text: str
     active: bool = False
     align: Literal["left", "center"] = "center"
     tooltip: Tooltip | None = None
-    height: float = ROW
+    height: float | None = None
+    size: int | None = None
     weight: float = 0.0
     enabled: bool = True
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
@@ -130,13 +150,13 @@ class Toggle:
 @dataclass(slots=True)
 class CheckBox:
     """A box with a label; emits the new `checked`. One that is not `enabled` is greyed and cannot be
-    changed."""
+    changed. Its box (`CHECK`), its text and its default height (`ROW` when None) grow with the `text_scale`."""
 
     id: str
     text: str
     checked: bool = False
     enabled: bool = True
-    height: float = ROW
+    height: float | None = None
     weight: float = 0.0
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
 
@@ -148,7 +168,8 @@ class Slider:
     the mouse holds it, its screen's or window's `UiState.sliding` is its id: an app that moves the range to
     follow the value leaves it alone until then. One that is not `enabled` is greyed and emits nothing (a setting
     the environment fixes); a `tooltip` shows while the mouse rests on it. `step` is how far left or right moves it
-    while it has the keys' or the pad's focus (a twentieth of its range when None; 1 for a whole number)."""
+    while it has the keys' or the pad's focus (a twentieth of its range when None; 1 for a whole number). Its text
+    `size` and default `height` are a button's."""
 
     id: str
     text: str
@@ -156,11 +177,12 @@ class Slider:
     minimum: float
     maximum: float
     format: str = "{:.0f}"
-    height: float = ROW
+    height: float | None = None
     weight: float = 0.0
     enabled: bool = True
     tooltip: Tooltip | None = None
     step: float | None = None
+    size: int | None = None
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
 
 
@@ -176,7 +198,9 @@ class TextBox:
 
     An enabled box takes the keys' or the pad's focus (`navigation`). Activating it starts editing in
     place, as a click does (Enter on a keyboard); a `keyboard` box instead emits `Event(screen, id, None)`,
-    for the app to open a `KeyboardWindow` (a pad has no keys to type with). A click still edits in place."""
+    for the app to open a `KeyboardWindow` (a pad has no keys to type with). A click still edits in place.
+
+    Its text `size` and default `height` are a button's."""
 
     id: str
     text: str
@@ -184,7 +208,8 @@ class TextBox:
     enabled: bool = True
     submit: bool = False
     keyboard: bool = False
-    height: float = ROW
+    height: float | None = None
+    size: int | None = None
     weight: float = 0.0
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
 
@@ -193,12 +218,13 @@ class TextBox:
 class Dropdown:
     """A button showing the current choice that opens a list; emits the choice. `current` is an
     index into `choices`, updated when a choice is made. One that is not `enabled` is greyed and does
-    not open; a `tooltip` shows while the mouse rests on it (why it is not enabled)."""
+    not open; a `tooltip` shows while the mouse rests on it (why it is not enabled). Its text and default height
+    (`ROW` when None) grow with the `text_scale`; its open list stays at the theme's size."""
 
     id: str
     choices: tuple[str, ...]
     current: int = 0
-    height: float = ROW
+    height: float | None = None
     weight: float = 0.0
     enabled: bool = True
     tooltip: Tooltip | None = None
@@ -314,12 +340,14 @@ class Column:
     height that is left. Content taller than the column overflows the bottom (a `Scroll` clips). In a
     `Row`, a column with a `width` is that wide, like a label, instead of taking a share (a strip of bars
     or buttons beside a log that takes the rest); weighted as well, it keeps that width and fills the row's height (a
-    pane of a fixed width whose scroll reaches the bottom)."""
+    pane of a fixed width whose scroll reaches the bottom). A `text_scale` scales the text under it (see the
+    module's docstring)."""
 
     children: list[Node]
     gap: float = GAP
     width: float | None = None
     weight: float = 0.0
+    text_scale: float | None = None
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
 
 
@@ -330,11 +358,13 @@ class Row:
     weighted children, and unweighted ones with no natural width (counted as weight 1), share what is
     left. Natural widths that do not fit shrink in proportion, so a row never overflows. A weighted
     child also gets the row's whole height (a row given more than its natural height, as a weighted
-    row in a column is): two columns side by side, each filling the window's height."""
+    row in a column is): two columns side by side, each filling the window's height. A `text_scale` scales the
+    text under it, as a column's does."""
 
     children: list[Node]
     gap: float = GAP
     weight: float = 0.0
+    text_scale: float | None = None
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)
 
 

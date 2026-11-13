@@ -28,14 +28,18 @@ from rayscreen.layout import (
     MenuSize,
     arrange,
     elided,
+    icon_scale,
     measure,
     menu_size,
     picture_rect,
+    scale_in,
     split_bar,
     split_ratio,
     text_lines,
+    text_size,
     title_strip,
     tooltip_size,
+    widget_scale,
     wrap_text,
 )
 from rayscreen.navigation import Nav, Typed, focusables, into_view, list_step, menu_step, slid, step, visible
@@ -49,6 +53,7 @@ from rayscreen.specs import (
     SCROLL_BORDER,
     TOOLTIP_OFFSET,
     WINDOW_TITLE,
+    WINDOW_WIDTH,
     Board,
     Button,
     CheckBox,
@@ -89,7 +94,6 @@ MIN_WINDOW = 160.0  # a resizable window's minimum width
 DOUBLE_CLICK = 0.4  # seconds between two title-bar presses that toggle a window's minimization
 LEFT, RIGHT = rl.MouseButton.MOUSE_BUTTON_LEFT, rl.MouseButton.MOUSE_BUTTON_RIGHT
 WHEEL_STEP = 30.0
-WINDOW_WIDTH = 520.0  # a window sized to its content is never wider than this
 _TOOLTIP_STATE = UiState()  # a tooltip's widgets draw locked: their state is never kept
 GHOST_ALPHA = 0.8  # a dragged picture under the mouse: the boxes beneath show through a little
 
@@ -508,7 +512,7 @@ def _window_rect(window: Window, theme: Theme, width: float, height: float) -> r
         w, h = window.size
         w, h = min(w, width - 2 * PAD), min(h, height - 2 * PAD)
     else:
-        w = min(WINDOW_WIDTH, width - 2 * PAD)
+        w = min(window.width if window.width is not None else WINDOW_WIDTH, width - 2 * PAD)
         h = _title_height(window) + 2 * PAD + measure(window.root, w - 2 * PAD, theme.text_width)
         w, h = w, min(h, height - 2 * PAD)
     x, y = window.position or ((width - w) / 2, (height - h) / 2)
@@ -840,6 +844,27 @@ def _disabled(disabled: bool) -> Iterator[None]:
 
 
 @contextmanager
+def _text_at(theme: Theme, size: int) -> Iterator[None]:
+    """raygui's controls drawn inside write at `size`, in the theme's font loaded at it, and draw the icons in their
+    text at its `icon_scale`. raygui's style is one for every control, so a widget under a `text_scale` (or with a
+    `size`) sets it around its own call and puts the theme's back, leaving the rest of the screen as it was."""
+    if size == theme.text:
+        yield
+        return
+    font = rl.gui_get_font()
+    if theme.font_path is not None:
+        rl.gui_set_font(theme.font(size))
+    rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiDefaultProperty.TEXT_SIZE, size)  # after the font: it may set the size
+    rl.gui_set_icon_scale(icon_scale(size))
+    try:
+        yield
+    finally:
+        rl.gui_set_font(font)
+        rl.gui_set_style(rl.GuiControl.DEFAULT, rl.GuiDefaultProperty.TEXT_SIZE, theme.text)
+        rl.gui_set_icon_scale(1)
+
+
+@contextmanager
 def _left_aligned_buttons(control: int = rl.GuiControl.BUTTON) -> Iterator[None]:
     """Buttons or toggles drawn inside read from the left, `PAD` in, as a dropdown and its list do."""
     alignment = rl.gui_get_style(control, rl.GuiControlProperty.TEXT_ALIGNMENT)
@@ -905,7 +930,7 @@ class _Drawer:
     and the menu of the picture there and a press on it that may start a drag (`pressed`). `ox`/`oy` shift every
     rect (a scroll's content); `clip` is the scroll's view: nodes outside it are skipped, nodes half in it are
     locked. `dragged` is the picture being dragged: it draws empty, and a `drop` picture under the mouse is
-    outlined."""
+    outlined. `scale` is the text scale in force where the walk is, as the layout passes had it."""
 
     def __init__(self, theme: Theme, screen: str, state: UiState, events: list[Event], dragged: str | None = None) -> None:
         self.theme, self.screen, self.state, self.events, self.dragged = theme, screen, state, events, dragged
@@ -915,8 +940,19 @@ class _Drawer:
         self.tooltip: Tooltip | None = None
         self.menu: Menu | None = None
         self.pressed: Dragging | None = None
+        self.scale = 1.0
 
     def draw(self, node: Node) -> None:
+        outer = self.scale
+        self.scale = scale_in(node, outer)
+        self._draw(node)
+        self.scale = outer
+
+    def _size(self, node: Node) -> int:
+        """The size `node`'s text is drawn at, as the layout measured it but from the theme's text size."""
+        return text_size(node, self.scale, self.theme.text)
+
+    def _draw(self, node: Node) -> None:
         rect = rl.Rectangle(node.rect.x + self.ox, node.rect.y + self.oy, node.rect.width, node.rect.height)
         match node:
             case Fill():
@@ -991,16 +1027,16 @@ class _Drawer:
         with self._clipped(rect) as draw_it:
             if not draw_it:
                 return
-            color = self._tone(spec.tone)
+            color, size = self._tone(spec.tone), self._size(spec)
             if spec.wrap:
-                for i, line in enumerate(wrap_text(spec.text, rect.width, spec.size, self.theme.text_width)):
-                    self.theme.draw_text(line, rect.x, rect.y + i * (spec.size + 4), spec.size, color)
+                for i, line in enumerate(wrap_text(spec.text, rect.width, size, self.theme.text_width)):
+                    self.theme.draw_text(line, rect.x, rect.y + i * (size + 4), size, color)
             else:
-                text = elided(spec.text, rect.width, spec.size, self.theme.text_width) if spec.elide else spec.text
+                text = elided(spec.text, rect.width, size, self.theme.text_width) if spec.elide else spec.text
                 x = rect.x
                 if spec.align == "center":
-                    x += (rect.width - self.theme.text_width(text, spec.size)) / 2
-                self.theme.draw_text(text, x, rect.y + (rect.height - spec.size) / 2, spec.size, color)
+                    x += (rect.width - self.theme.text_width(text, size)) / 2
+                self.theme.draw_text(text, x, rect.y + (rect.height - size) / 2, size, color)
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
 
@@ -1013,9 +1049,10 @@ class _Drawer:
         with self._clipped(rect) as draw_it:
             if not draw_it:
                 return
-            for i, runs in enumerate(text_lines(spec, rect.width, self.theme.text_width)):
+            size = self._size(spec)
+            for i, runs in enumerate(text_lines(spec, rect.width, self.theme.text_width, self.scale)):
                 for run in runs:
-                    self.theme.draw_text(run.text, rect.x + run.x, rect.y + i * (spec.size + 4), spec.size, self._tone(run.tone))
+                    self.theme.draw_text(run.text, rect.x + run.x, rect.y + i * (size + 4), size, self._tone(run.tone))
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
 
@@ -1030,7 +1067,7 @@ class _Drawer:
             if not draw_it:
                 return
             with (_disabled(not spec.enabled), _left_aligned_buttons() if spec.align == "left" else nullcontext(),
-                  _error_buttons(self.theme) if spec.invalid else nullcontext()):
+                  _error_buttons(self.theme) if spec.invalid else nullcontext(), _text_at(self.theme, self._size(spec))):
                 clicked = rl.gui_button(rect, spec.text)
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
@@ -1042,7 +1079,8 @@ class _Drawer:
             if not draw_it:
                 return
             value = rl.ffi.new("bool *", spec.active)
-            with _disabled(not spec.enabled), _left_aligned_buttons(rl.GuiControl.TOGGLE) if spec.align == "left" else nullcontext():
+            left = _left_aligned_buttons(rl.GuiControl.TOGGLE) if spec.align == "left" else nullcontext()
+            with _disabled(not spec.enabled), left, _text_at(self.theme, self._size(spec)):
                 rl.gui_toggle(rect, spec.text, value)
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
@@ -1054,9 +1092,10 @@ class _Drawer:
         with self._clipped(rect) as draw_it:
             if not draw_it:
                 return
-            box = rl.Rectangle(rect.x, rect.y + (rect.height - CHECK) / 2, CHECK, CHECK)
+            side = CHECK * widget_scale(spec, self.scale)
+            box = rl.Rectangle(rect.x, rect.y + (rect.height - side) / 2, side, side)
             value = rl.ffi.new("bool *", spec.checked)
-            with _disabled(not spec.enabled):
+            with _disabled(not spec.enabled), _text_at(self.theme, self._size(spec)):
                 rl.gui_check_box(box, spec.text, value)
             if spec.enabled and value[0] != spec.checked:
                 spec.checked = value[0]
@@ -1067,7 +1106,7 @@ class _Drawer:
             if not draw_it:
                 return
             # raygui draws a slider's texts *outside* its bounds, so label and value are drawn here
-            text = self.theme.text
+            text = self._size(spec)
             label_w = self.theme.text_width(spec.text, text) + GAP if spec.text else 0.0
             widest = max(self.theme.text_width(spec.format.format(end), text) for end in (spec.minimum, spec.maximum))
             value_w = widest + GAP
@@ -1098,7 +1137,9 @@ class _Drawer:
             if not draw_it:
                 return
             if spec.id == state._editing and spec.enabled:
-                if rl.gui_text_box(rect, state._buffer, BUFFER, True):
+                with _text_at(self.theme, self._size(spec)):
+                    entered_box = rl.gui_text_box(rect, state._buffer, BUFFER, True)
+                if entered_box:
                     text = rl.ffi.string(state._buffer).decode("utf-8", "replace")
                     entered = rl.is_key_pressed(rl.KeyboardKey.KEY_ENTER) or rl.is_key_pressed(rl.KeyboardKey.KEY_KP_ENTER)
                     if spec.submit and entered:
@@ -1119,7 +1160,7 @@ class _Drawer:
             else:
                 text = state.drafts.get(spec.id, spec.text) if spec.submit else spec.text
                 shown = rl.ffi.new(f"char[{BUFFER}]", text.encode()[: BUFFER - 1])
-                with _disabled(not spec.enabled):
+                with _disabled(not spec.enabled), _text_at(self.theme, self._size(spec)):
                     clicked = rl.gui_text_box(rect, shown, BUFFER, False)
                 if clicked and spec.enabled:
                     state.edit(spec)
@@ -1135,11 +1176,13 @@ class _Drawer:
             is_open = state.open_list is not None and state.open_list.id == spec.id
             current = spec.choices[spec.current] if spec.choices else ""
             # the choice reads from the left and the arrow sits at the right, as in a native dropdown
-            with _disabled(not spec.enabled), _left_aligned_buttons():
+            size = self._size(spec)
+            with _disabled(not spec.enabled), _left_aligned_buttons(), _text_at(self.theme, size):
                 clicked = rl.gui_button(rect, current)
-            icon_x, icon_y = rect.x + rect.width - PAD - ICON, rect.y + (rect.height - ICON) / 2
+            icon = ICON * icon_scale(size)
+            icon_x, icon_y = rect.x + rect.width - PAD - icon, rect.y + (rect.height - icon) / 2
             arrow = self.theme.ink if spec.enabled else self.theme.muted
-            rl.gui_draw_icon(ARROW_UP if is_open else ARROW_DOWN, int(icon_x), int(icon_y), 1, arrow)
+            rl.gui_draw_icon(ARROW_UP if is_open else ARROW_DOWN, int(icon_x), int(icon_y), icon_scale(size), arrow)
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
             if clicked and spec.enabled:
@@ -1263,14 +1306,15 @@ class _Drawer:
             rl.draw_rectangle_lines_ex(box, 1, self.theme.ink)
 
     def _panel(self, spec: Panel, rect: rl.Rectangle) -> None:
-        strip = title_strip(spec)
+        strip = title_strip(spec, self.scale)
         box = rl.Rectangle(rect.x, rect.y + strip, rect.width, rect.height - strip)
         if spec.fill:  # the title's top half too, or it straddles the fill's edge
             rl.draw_rectangle_rec(rect, self.theme.panel)
         elif spec.backdrop > 0:
             rl.draw_rectangle_rec(rect, rl.fade(self.theme.background, spec.backdrop))
         if spec.title or not spec.backdrop:
-            rl.gui_group_box(box, spec.title or rl.ffi.NULL)  # "" would leave a gap in the top line
+            with _text_at(self.theme, self._size(spec)):
+                rl.gui_group_box(box, spec.title or rl.ffi.NULL)  # "" would leave a gap in the top line
         self.draw(spec.child)
 
     def _scroll(self, spec: Scroll, rect: rl.Rectangle) -> None:

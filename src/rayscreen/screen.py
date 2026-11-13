@@ -57,7 +57,8 @@ class Event:
 
 class Window:
     """A panel over its screen: centred until dragged by its title bar, sized to its content unless
-    `size` says otherwise. A `modal` window (the default) dims and locks everything below it; a
+    `size` says otherwise; one sized to its content is `width` wide (`WINDOW_WIDTH` when None), within the
+    screen. A `modal` window (the default) dims and locks everything below it; a
     non-modal one floats over a live screen, which is locked only while the mouse is over the
     window, so a click on it never reaches what lies beneath. A `borderless` window drops the frame
     (title bar, buttons, border); a draggable one is then dragged by clicking anywhere inside it
@@ -93,8 +94,9 @@ class Window:
         resizable: bool = False,
         backdrop: bool = True,
         menu: Menu | None = None,
+        width: float | None = None,
     ) -> None:
-        self.id, self.title, self.root, self.size = id, title, root, size
+        self.id, self.title, self.root, self.size, self.width = id, title, root, size, width
         self.draggable, self.minimizable, self.closeable, self.borderless, self.pauses, self.modal, self.resizable = (
             draggable,
             minimizable,

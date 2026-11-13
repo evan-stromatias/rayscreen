@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pyray as rl
 
-from rayscreen import Button, Event, FileWindow, KeyboardWindow, Label, ScreenManager, dispatch
+from rayscreen import Button, Column, Event, FileWindow, KeyboardWindow, Label, ScreenManager, dispatch
 from rayscreen.demo.__main__ import SCENES
-from rayscreen.demo.screens import BUNDLE_FILES, FilesScreen, KeyboardScreen, MainScreen, ScenesScreen, SettingsScreen
+from rayscreen.demo.screens import BUNDLE_FILES, LARGE_FORM, LARGE_KEYBOARD, FilesScreen, KeyboardScreen, MainScreen, ScenesScreen, SettingsScreen
 
 
 def test_scenes_screen_has_a_button_for_every_demo_scene():
@@ -116,3 +116,15 @@ def test_keyboard_screen_opens_the_keyboard_from_its_box_and_takes_its_ok():
     screen.close_window()
     assert dispatch(screen, [Event("keyboard", "name.keyboard", None)]) == []  # cancelled
     assert screen.name == "Q"
+
+
+def test_keyboard_screens_large_toggle_scales_its_form_and_its_keyboard():
+    manager = ScreenManager()
+    screen = KeyboardScreen(manager)
+    manager.push(screen)
+    assert dispatch(screen, [Event("keyboard", "large", True)]) == []
+    form = screen.root.children[1]
+    assert isinstance(form, Column) and form.text_scale == LARGE_FORM
+    screen.open_keyboard()
+    window = screen.window
+    assert isinstance(window, KeyboardWindow) and window.scale == LARGE_KEYBOARD
