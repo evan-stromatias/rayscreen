@@ -4,7 +4,7 @@ width. No window needed."""
 from rayscreen.geometry import Rect
 from rayscreen.layout import arrange, content_width, icon_scale, measure, natural_width, scaled, text_size, title_strip
 from rayscreen.navigation import focusables, into_view
-from rayscreen.specs import CHECK, GAP, MIN_BUTTON, PAD, ROW, SMALL, TEXT, Button, CheckBox, Column, Label, Panel, Row, Scroll, Slider, Text, TextBox, Toggle
+from rayscreen.specs import CHECK, GAP, MIN_BUTTON, PAD, ROW, SMALL, TEXT, Button, CheckBox, Column, Label, Panel, Picture, Row, Scroll, Slider, Text, TextBox, Toggle
 
 
 def fake_measure(text: str, size: int) -> float:
@@ -42,6 +42,14 @@ def test_the_text_under_a_scale_is_its_size_times_it():
     assert text_size(Button("b", "x"), 2.0) == 2 * TEXT
     assert text_size(Text.of("t", "x"), 1.5) == 24
     assert icon_scale(text_size(Button("b", "x"), 2.0)) == 2 and icon_scale(TEXT) == 1
+
+
+def test_a_pictures_caption_and_badge_grow_with_the_scale_and_the_picture_keeps_its_size():
+    assert text_size(Picture("p", badge="7"), 2.0) == 2 * SMALL
+    assert text_size(Picture("p", badge="7"), 1.5, small=12) == 18
+    picture = Picture("p", badge="7", height=48)
+    arrange(Column(children=[picture], text_scale=2.0), Rect(0, 0, 400, 400), fake_measure)
+    assert picture.rect.height == 48
 
 
 def test_widths_sized_to_their_text_measure_at_the_scaled_size():

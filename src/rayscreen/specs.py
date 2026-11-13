@@ -14,7 +14,9 @@ sets its own (a screen's options pane in large type for a TV, the rest as it is)
 - Rows: a widget's default height (`height=None`: `ROW`) grows with its text, so the text fits, as a check box's
   box (`CHECK`) does; a height given explicitly stays as given. Widths sized to their text (`MIN_BUTTON`) measure
   at its size.
-- What stays: the gaps and pads, pictures, bars and swatches, a `ListView`'s rows, and the popups (an open
+- Pictures: a `Picture`'s caption and badge (the theme's `SMALL`) grow with the scale; the picture itself keeps its
+  size.
+- What stays: the gaps and pads, bars and swatches, a `ListView`'s rows, and the popups (an open
   dropdown's list, tooltips, menus), drawn at the theme's size.
 
 `Tooltip` and `Menu` are not nodes: a screen's `hover` and `menu` hooks return them for what lies
@@ -267,16 +269,17 @@ class Picture:
     uses: `contain` shows it whole, centred, at the largest scale that fits; `stretch` fills the rect.
     `flipped` draws it upside down, as a render texture is stored; `framed` outlines it even with a texture
     (a box of a grid), in the theme's accent instead of muted with `accent` (the slots most items go in).
-    A `caption` is written inside the box while it has no texture (an empty slot's name); a `tint` (RGBA,
-    0-255) colours the texture (a blocked slot's dimmed picture). A `clickable` picture emits an event
+    A `caption` is written inside the box while it has no texture (an empty slot's name); a `badge` over the texture,
+    in its bottom right corner (a stack's count), on a plate of the theme's background so it reads over any texture;
+    a `tint` (RGBA, 0-255) colours the texture (a blocked slot's dimmed picture), not the badge. A `clickable` picture emits an event
     (value None) when clicked; otherwise it takes no
     mouse, so the screen's `hover` and `menu` hooks, and the app's own pan and zoom, work over it. A `tooltip`
     shows while the mouse rests on the picture (a thumbnail's details), in place of the `hover` hook's; a
     `menu` opens on a right-click on it (an item's actions), as a screen's `menu` hook does over the screen.
 
     Drag and drop: a picture with `drag` (what it carries: an item's id) is dragged when the mouse presses on it
-    and moves `DRAG_START` pixels before letting go; meanwhile its texture follows the mouse and the picture shows
-    empty. On release its screen emits `Event(screen, id, Drop(...))`, naming the `drop` picture under the mouse,
+    and moves `DRAG_START` pixels before letting go; meanwhile its texture and badge follow the mouse and the picture
+    shows empty. On release its screen emits `Event(screen, id, Drop(...))`, naming the `drop` picture under the mouse,
     in any window of the screen (`screen.Drop`). A press and release without moving is a click, when `clickable`.
 
     In a `Row` a picture takes a share of the width, or `width` when given (a portrait's square beside a fill).
@@ -294,6 +297,7 @@ class Picture:
     menu: Menu | None = None
     framed: bool = False
     caption: str = ""
+    badge: str = ""
     tint: tuple[int, int, int, int] | None = None
     accent: bool = False
     height: float = 5 * ROW

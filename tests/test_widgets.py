@@ -7,7 +7,21 @@ import pyray as rl
 from rayscreen.draw import _pointer_free
 from rayscreen.geometry import Rect
 from rayscreen.icons import ICONS, MOON, SUN, icon_text
-from rayscreen.layout import arrange, content_width, elided, grid_columns, measure, natural_width, picture_rect, split_bar, split_ratio, split_widths
+from rayscreen.layout import (
+    BADGE_INSET,
+    BADGE_PAD,
+    arrange,
+    badge_rect,
+    content_width,
+    elided,
+    grid_columns,
+    measure,
+    natural_width,
+    picture_rect,
+    split_bar,
+    split_ratio,
+    split_widths,
+)
 from rayscreen.screen import Screen, Window
 from rayscreen.specs import (
     GAP,
@@ -46,6 +60,16 @@ def test_a_contained_picture_keeps_its_shape_centred():
     assert picture_rect(wide, Rect(0, 0, 400, 400)) == Rect(0, 100, 400, 200)
     tall = Picture("p", size=(100, 200))
     assert picture_rect(tall, Rect(10, 0, 400, 400)) == Rect(110, 0, 200, 400)
+
+
+def test_a_badge_sits_in_the_bottom_right_corner_inset():
+    plate = badge_rect(Rect(100, 50, 48, 48), 12.0, 14)
+    assert plate == Rect(148 - BADGE_INSET - 12 - 2 * BADGE_PAD, 98 - BADGE_INSET - 18, 12 + 2 * BADGE_PAD, 18)
+
+
+def test_a_badge_too_wide_for_its_box_stays_inside_it():
+    plate = badge_rect(Rect(10, 10, 20, 12), 40.0, 14)
+    assert plate == Rect(10, 10, 20, 12)
 
 
 def test_a_stretched_or_unsized_picture_fills_its_rect():
