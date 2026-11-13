@@ -1,3 +1,9 @@
+2026-11-13, 0.43.0:
+  - on-screen keyboard
+  - Add `KeyboardWindow`, a modal on-screen keyboard for typing with a gamepad. It has a QWERTY key grid, a Shift key with caps lock, Space, Backspace and OK. The first letter is a capital, typing is limited to a maximum length, and only the layout's characters can be typed. The mouse and a physical keyboard also work.
+  - Let a `TextBox` take the keys' or the pad's focus. Activating it edits it in place, or with `keyboard=True` it emits an event so the app can open the on-screen keyboard. The keyboard's OK can write straight into the box with `box=`.
+  - Add the `delete`, `space`, `shift` and `confirm` fields to `Nav` for the pad's buttons, and a `Window.navigate` hook so a focused window can handle the navigation first. Also add a `keyboard` demo scene.
+
 2026-11-10, 0.42.6:
   - dummy PR
 

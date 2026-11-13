@@ -400,7 +400,7 @@ wheels = [
 
 [[package]]
 name = "rayscreen"
-version = "0.42.6"
+version = "0.43.0"
 source = { editable = "." }
 dependencies = [
     { name = "raylib" },
