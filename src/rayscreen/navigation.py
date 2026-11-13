@@ -2,11 +2,14 @@
 and activating it does what a click would. No raylib: the app says what was asked this frame (`Nav`), from its own
 keys and pad, and `draw.frame` applies it.
 
-- Only enabled buttons, toggles, check boxes, dropdowns and sliders take the focus, and the pictures that do something
+- Only enabled buttons, toggles, check boxes, dropdowns, sliders and text boxes take the focus, and the pictures that do something
   (`clickable`, or with a `menu`: an item in a grid, whose activation opens its menu by the picture). An open context
   menu takes every move first: up and down its enabled items (`menu_step`), activating chooses one, back dismisses it.
 - Activating a dropdown opens its list, which then takes every move as a menu does (`list_step`); left and right move
-  a focused slider by its step (`slid`) instead of the focus.
+  a focused slider by its step (`slid`) instead of the focus. Activating a text box edits it in place, or, for a
+  `keyboard` box, emits its event for the app to open a `KeyboardWindow`.
+- The focused window sees the nav first (`Window.navigate`): an on-screen keyboard reads `delete`, `space`, `shift`
+  and `confirm` from it, and what was typed on a physical keyboard (`Typed`), before the rest moves the focus.
 - A move is spatial, from where the widgets are on screen (moved by the scrolls they are in), so a column, a row and
   a grid move as they look; the focus's scroll then moves to show it (`into_view`).
 """
@@ -16,10 +19,10 @@ from dataclasses import dataclass
 from typing import Literal, NamedTuple
 
 from rayscreen.geometry import Rect
-from rayscreen.specs import SCROLL_BORDER, Button, CheckBox, Dropdown, MenuItem, Node, Picture, Scroll, Slider, Toggle, children
+from rayscreen.specs import SCROLL_BORDER, Button, CheckBox, Dropdown, MenuItem, Node, Picture, Scroll, Slider, TextBox, Toggle, children
 
 type Direction = Literal["up", "down", "left", "right"]
-type Focusable = Button | Toggle | CheckBox | Dropdown | Slider | Picture
+type Focusable = Button | Toggle | CheckBox | Dropdown | Slider | TextBox | Picture
 type ScrollOffset = Callable[[str], float]  # a scroll's offset by its id (`UiState.scroll_offset`)
 ACROSS_WEIGHT = 2.0  # a step off to the side counts double: the widget straight that way wins
 SLIDER_STEPS = 20  # a slider without its own step moves a twentieth of its range a press
@@ -28,15 +31,42 @@ SLIDER_STEPS = 20  # a slider without its own step moves a twentieth of its rang
 @dataclass(frozen=True, slots=True)
 class Nav:
     """What the keys or the pad asked of the menus this frame: a `move`, a click on the focused widget (`activate`),
-    or Esc (`back`)."""
+    or Esc (`back`). The rest are for an on-screen keyboard (`KeyboardWindow`), which a pad types with: `delete`
+    the last character, type a `space`, `shift` the keys, `confirm` the text. Elsewhere they do nothing, so an app
+    can fill them from its pad every frame."""
 
     move: Direction | None = None
     activate: bool = False
     back: bool = False
+    delete: bool = False
+    space: bool = False
+    shift: bool = False
+    confirm: bool = False
 
     @property
     def any(self) -> bool:
-        return self.move is not None or self.activate or self.back
+        return self.move is not None or self.activate or self.back or self.delete or self.space or self.shift or self.confirm
+
+
+class Typed(NamedTuple):
+    """What was typed on a physical keyboard this frame, for the focused window that takes typing (`Window.typing`):
+    the characters, and whether Backspace and Enter were pressed. `draw.frame` reads it from raylib."""
+
+    text: str = ""
+    backspace: bool = False
+    enter: bool = False
+
+    @property
+    def any(self) -> bool:
+        return bool(self.text) or self.backspace or self.enter
+
+
+class Steered(NamedTuple):
+    """What a focused window made of the nav (`Window.navigate`): the nav left for moving and clicking its focus, and
+    the ids of its own widgets to click, as if the mouse had (an on-screen keyboard's OK for the pad's Start)."""
+
+    nav: Nav
+    clicks: tuple[str, ...] = ()
 
 
 class Placed(NamedTuple):
@@ -52,7 +82,7 @@ def focusables(root: Node, offset: ScrollOffset = lambda _: 0.0) -> list[Placed]
     found: list[Placed] = []
 
     def visit(node: Node, oy: float, scroll: Scroll | None) -> None:
-        if (isinstance(node, (Button, Toggle, CheckBox, Dropdown, Slider)) and node.enabled) or (
+        if (isinstance(node, (Button, Toggle, CheckBox, Dropdown, Slider, TextBox)) and node.enabled) or (
                 isinstance(node, Picture) and (node.clickable or node.menu is not None)):
             x, y, width, height = node.rect
             found.append(Placed(node, Rect(x, y + oy, width, height), scroll))

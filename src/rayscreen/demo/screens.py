@@ -14,6 +14,7 @@ import pyray as rl
 
 from rayscreen.data import data_tree
 from rayscreen.file_window import FileWindow, format_size
+from rayscreen.keyboard_window import KeyboardWindow
 from rayscreen.screen import Drop, Event, Screen, ScreenManager, Window
 from rayscreen.specs import (
     CHECK,
@@ -144,6 +145,7 @@ SCENE_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("drag", "Pack grid drag-and-drop & drop onto world"),
             ("drag-held", "Active drag ghost held under cursor"),
             ("chat", "Follow scroll & submit TextBox"),
+            ("keyboard", "On-screen keyboard for a pad, from a TextBox"),
             ("board", "Fixed-aspect Board with Placed slots"),
         ),
     ),
@@ -174,6 +176,10 @@ def open_scene(manager: ScreenManager, scene: str) -> None:
         manager.push(BoardScreen(manager))
     elif scene == "chat":
         manager.push(ChatScreen(manager))
+    elif scene == "keyboard":
+        keyboard = KeyboardScreen(manager)
+        manager.push(keyboard)
+        keyboard.open_keyboard()
     elif scene in ("files", "files-load", "files-save"):
         files = FilesScreen(manager)
         manager.push(files)
@@ -897,6 +903,47 @@ class ChatScreen(Screen):
             self.say(event.value)
         elif event.widget == "chat.send":
             self.say(self.state.take_draft("chat.say"))
+        elif event.widget == "back":
+            self.manager.pop()
+        else:
+            return False
+        return True
+
+
+NAME_LENGTH = 16  # the character creation screen's name field
+PAD_HINT = "Pad: A types, B deletes (cancels when empty), Y space, X shift, Start OK. Arrows and Enter work too."
+
+
+class KeyboardScreen(Screen):
+    """A character creation screen's name field: a `keyboard` text box that a click edits in place and the pad's A
+    (or Enter) opens an on-screen keyboard for; the keyboard's OK sets the box and gives the box's own event."""
+
+    def __init__(self, manager: ScreenManager) -> None:
+        self.manager = manager
+        self.name = ""
+        super().__init__("keyboard", self.tree(), margin=2 * PAD)
+
+    def tree(self) -> Column:
+        return Column(children=[
+            Label("heading", "New character", size=32, height=48),
+            Row(children=[Label("name.label", "Name"), TextBox("name", self.name, keyboard=True, weight=1)]),
+            Label("name.shown", f"You will be called {self.name}." if self.name else "You have no name yet.", tone="muted"),
+            Label("hint", PAD_HINT, size=SMALL, tone="muted", wrap=True),
+            Fill(),
+            Row(children=[Fill(), Button("back", "Back")]),
+        ], gap=2 * GAP)
+
+    def open_keyboard(self) -> None:
+        self.open(KeyboardWindow("name.keyboard", "Your name", self.name, max_length=NAME_LENGTH, box="name"))
+
+    def handle(self, event: Event) -> bool:
+        if event.widget == "name" and event.value is None:  # the pad's A on the box
+            self.open_keyboard()
+        elif event.widget == "name" and isinstance(event.value, str):  # typed in place, or the keyboard's OK
+            self.name = event.value.strip()[:NAME_LENGTH]
+            self.set_root(self.tree())
+        elif event.widget == "name.keyboard":  # cancelled: the name stays
+            pass
         elif event.widget == "back":
             self.manager.pop()
         else:

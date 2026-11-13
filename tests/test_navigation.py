@@ -80,6 +80,7 @@ def test_a_move_takes_the_widget_straight_that_way_over_a_nearer_one_aside():
 
 def test_nav_says_whether_anything_was_asked():
     assert not Nav().any and Nav(move="up").any and Nav(activate=True).any and Nav(back=True).any
+    assert Nav(delete=True).any and Nav(space=True).any and Nav(shift=True).any and Nav(confirm=True).any
 
 
 def scrolled_list(offset: float) -> list[Placed]:

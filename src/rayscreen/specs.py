@@ -172,13 +172,18 @@ class TextBox:
 
     A `submit` box is a chat's: Enter emits the text, clears the box and keeps it focused; leaving it
     emits nothing and keeps what was typed as its draft (`UiState.take_draft`, for a Send button), and
-    `text` is only shown while there is no draft."""
+    `text` is only shown while there is no draft.
+
+    An enabled box takes the keys' or the pad's focus (`navigation`). Activating it starts editing in
+    place, as a click does (Enter on a keyboard); a `keyboard` box instead emits `Event(screen, id, None)`,
+    for the app to open a `KeyboardWindow` (a pad has no keys to type with). A click still edits in place."""
 
     id: str
     text: str
     invalid: bool = False
     enabled: bool = True
     submit: bool = False
+    keyboard: bool = False
     height: float = ROW
     weight: float = 0.0
     rect: Rect = field(default=Rect(0, 0, 0, 0), init=False, repr=False)

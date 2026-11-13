@@ -1,5 +1,6 @@
 """Icons raygui lacks, drawn into the icon slots it leaves free (250 to 255), so a button shows one as raygui's
-own: `Button(id, icon_text(SUN))`. Each is a 16 x 16 bitmap made from circles, so it needs no image file.
+own: `Button(id, icon_text(SUN))`. Each is a 16 x 16 bitmap made from circles or drawn as pixel rows, so it needs
+no image file.
 """
 
 import math
@@ -8,6 +9,8 @@ from collections.abc import Callable
 import pyray as rl
 
 SUN, MOON = 250, 251  # light mode's and dark mode's
+SHIFT, SHIFT_ON, CAPS_LOCK = 252, 253, 254  # an on-screen keyboard's shift: an outlined arrow, filled, and barred
+BACKSPACE = 255  # an on-screen keyboard's backspace: a key pointing left with an X cut out of it
 SIZE = 16  # raygui's icons are 16 x 16 pixels, two rows to a 32-bit word
 
 
@@ -42,7 +45,67 @@ def _moon(x: float, y: float) -> bool:
     return math.hypot(x - 7.5, y - 7.5) <= 6.4 and math.hypot(x - 10.5, y - 5) > 5.0
 
 
-ICONS = {SUN: _bitmap(_sun), MOON: _bitmap(_moon)}
+_SHIFT_ROWS = (
+    "................",
+    "................",
+    ".......##.......",
+    "......#..#......",
+    ".....#....#.....",
+    "....#......#....",
+    "...#........#...",
+    "..####....####..",
+    ".....#....#.....",
+    ".....#....#.....",
+    ".....#....#.....",
+    ".....#....#.....",
+    ".....######.....",
+)
+_SHIFT_ON_ROWS = (
+    "................",
+    "................",
+    ".......##.......",
+    "......####......",
+    ".....######.....",
+    "....########....",
+    "...##########...",
+    "..############..",
+    ".....######.....",
+    ".....######.....",
+    ".....######.....",
+    ".....######.....",
+    ".....######.....",
+)
+
+_BACKSPACE_ROWS = (
+    "................",
+    "................",
+    "................",
+    "......##########",
+    ".....###########",
+    "....####.####.##",
+    "...######.##.###",
+    "..########..####",
+    "..########..####",
+    "...######.##.###",
+    "....####.####.##",
+    ".....###########",
+    "......##########",
+)
+
+
+def _drawn(rows: tuple[str, ...]) -> Callable[[float, float], bool]:
+    """A pixel-row drawing ("#" set), its rows top first, as `_bitmap` asks for it."""
+    return lambda x, y: int(y) < len(rows) and rows[int(y)][int(x)] == "#"
+
+
+ICONS = {
+    SUN: _bitmap(_sun),
+    MOON: _bitmap(_moon),
+    SHIFT: _bitmap(_drawn(_SHIFT_ROWS)),
+    SHIFT_ON: _bitmap(_drawn(_SHIFT_ON_ROWS)),
+    CAPS_LOCK: _bitmap(_drawn((*_SHIFT_ON_ROWS, "................", ".....######....."))),
+    BACKSPACE: _bitmap(_drawn(_BACKSPACE_ROWS)),
+}
 
 
 def install() -> None:

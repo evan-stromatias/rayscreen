@@ -15,7 +15,7 @@ from typing import Any
 import pyray as rl
 
 from rayscreen.geometry import Rect
-from rayscreen.specs import DRAG_START, Menu, Node, Split, walk
+from rayscreen.specs import DRAG_START, Menu, Node, Split, TextBox, walk
 
 BUFFER = 512  # bytes a text box holds
 FOLLOW_SLACK = 1.0  # pixels above its bottom a follow scroll still counts as at the bottom
@@ -163,6 +163,12 @@ class UiState:
         if list_id not in self._list_scroll:
             self._list_scroll[list_id] = rl.ffi.new("int *")
         return self._list_scroll[list_id]
+
+    def edit(self, box: TextBox) -> None:
+        """Start editing `box`, as a click on it does: its buffer holds what it shows (a submit box's draft, else
+        its text), and from the next frame the keys type into it."""
+        text = self.drafts.get(box.id, box.text) if box.submit else box.text
+        self.editing, self.buffer = box.id, rl.ffi.new(f"char[{BUFFER}]", text.encode()[: BUFFER - 1])
 
     def take_draft(self, box_id: str) -> str:
         """What was typed in the submit box `box_id` and not sent, which it no longer holds: a Send button's text.
