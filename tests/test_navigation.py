@@ -5,6 +5,7 @@ from rayscreen.geometry import Rect
 from rayscreen.layout import arrange
 from rayscreen.navigation import Nav, Placed, focusables, into_view, list_step, menu_step, slid, step, visible
 from rayscreen.specs import (
+    GAP,
     Button,
     CheckBox,
     Column,
@@ -17,6 +18,7 @@ from rayscreen.specs import (
     Row,
     Scroll,
     Slider,
+    Table,
     TextBox,
     Toggle,
 )
@@ -139,3 +141,95 @@ def test_down_from_a_tab_lands_on_the_wide_box_below_it_before_a_small_button_fu
     assert step(nodes, "tab.a", "down") == "name"  # its centre is far right of the tab's, but it lies straight below
     assert step(nodes, "name", "down") == "gender.prev"  # both arrows lie below the box: the first in the row
     assert step(nodes, "gender.next", "up") == "name"
+
+
+EXPRESSIONS = ("neutral", "happy", "sad", "angry", "surprised", "blink")
+
+
+def chooser(name: str) -> Row:
+    """A `<  value  >` chooser: the value's label takes the width between its two narrow buttons."""
+    return Row(children=[Button(f"{name}.prev", "<", width=40), Label(f"{name}.value", "Value", align="center", weight=1),
+                         Button(f"{name}.next", ">", width=40)])
+
+
+def swatches(name: str, count: int) -> Row:
+    return Row(children=[Picture(f"{name}.{i}", clickable=True, width=30, height=30) for i in range(1, count + 1)])
+
+
+def creation_form(width: float) -> list[Placed]:
+    """A character creation form as an app builds one: names beside their controls in a stretch table, choosers with
+    rows of small swatches between them, a slider, and a full-width row of expression toggles. The swatches lie
+    nearer a chooser's `<` than its `>` does, and the toggles grow with the width while the gaps between lines do
+    not: where a move went by distance on screen alone, both left their row."""
+    face = Table([[Label("gender.label", "Gender"), chooser("gender")],
+                  [Label("skin.label", "Skin"), swatches("skin", 8)],
+                  [Label("eyes.label", "Eyes"), chooser("eyes")],
+                  [Label("eye_height.label", "Eye height"), Slider("eye_height", "", 0.5, 0.0, 1.0, weight=1)]],
+                 row_gap=GAP, stretch=True)
+    expression = Row(children=[Toggle(f"expression.{name}", name.title(), weight=1) for name in EXPRESSIONS])
+    hair = Table([[Label("hair.label", "Hair"), chooser("hair")],
+                  [Label("hair_colour.label", "Colour"), swatches("hair_colour", 10)]], row_gap=GAP, stretch=True)
+    root = Column(children=[face, Label("expression.label", "Try an expression"), expression, hair])
+    arrange(root, Rect(0, 0, width, width * 9 / 16), measure)
+    return focusables(root)
+
+
+def test_left_and_right_keep_to_a_chooser_s_row_over_the_swatches_beside_it():
+    for width in (1280, 1920, 2560):
+        nodes = creation_form(width)
+        for name in ("gender", "eyes", "hair"):
+            assert step(nodes, f"{name}.prev", "right") == f"{name}.next", (width, name)
+            assert step(nodes, f"{name}.next", "left") == f"{name}.prev", (width, name)
+
+
+def test_left_and_right_walk_a_wide_row_of_toggles_in_order():
+    ids = [f"expression.{name}" for name in EXPRESSIONS]
+    for width in (1280, 2000, 2560):
+        nodes = creation_form(width)
+        assert [step(nodes, ids[i], "right") for i in range(len(ids) - 1)] == ids[1:], width
+        assert [step(nodes, ids[i], "left") for i in range(1, len(ids))] == ids[:-1], width
+
+
+def test_at_a_row_s_end_the_focus_stays_rather_than_jump_to_a_row_that_looks_nearer():
+    nodes = creation_form(1920)
+    assert step(nodes, "skin.8", "right") == "skin.8"  # the gender row's `>` lies up and to the right
+    assert step(nodes, "skin.1", "left") == "skin.1"
+    assert step(nodes, "expression.blink", "right") == "expression.blink"
+
+
+def test_up_and_down_go_line_by_line_to_the_nearest_widget_in_the_next_line():
+    nodes = creation_form(1920)
+    assert step(nodes, "gender.next", "down") == "skin.8"  # no swatch under it: still the swatch row
+    assert step(nodes, "gender.prev", "down") == "skin.1"
+    assert step(nodes, "skin.3", "up") == "gender.prev" and step(nodes, "skin.3", "down") == "eyes.prev"
+    assert step(nodes, "eye_height", "down") == "expression.neutral"  # out of the table into the row below it
+    assert step(nodes, "expression.angry", "up") == "eye_height" and step(nodes, "expression.angry", "down") == "hair.next"
+    assert step(nodes, "expression.happy", "down") == "hair.prev"  # the hair line first, not a colour swatch nearer aside
+
+
+def test_right_from_a_column_beside_another_goes_across_not_to_its_top():
+    root = laid_out(Row(children=[Column(children=[Button("a", "A"), Button("b", "B")], weight=1),
+                                  Column(children=[Button("c", "C"), Button("d", "D")], weight=1)]))
+    nodes = focusables(root)
+    assert step(nodes, "b", "right") == "d" and step(nodes, "d", "left") == "b"
+    assert step(nodes, "a", "right") == "c" and step(nodes, "a", "down") == "b"
+
+
+def test_at_a_row_s_end_the_focus_leaves_it_for_the_panel_beside_it():
+    form = Column(children=[Row(children=[Button("a", "A"), Button("b", "B")]), Row(children=[Button("c", "C")])], weight=1)
+    root = laid_out(Row(children=[form, Column(children=[Button("side", "Side"), Button("lower", "Lower")], width=100)]))
+    nodes = focusables(root)
+    assert step(nodes, "b", "right") == "side" and step(nodes, "c", "right") == "lower"  # the nearest, level with it
+    assert step(nodes, "side", "left") == "b" and step(nodes, "lower", "left") == "c"
+
+
+def test_a_grid_moves_by_where_its_cells_are():
+    root = laid_out(Grid([Picture(f"cell.{i}", clickable=True, height=40) for i in range(6)], cell=60, columns=3))
+    nodes = focusables(root)
+    assert step(nodes, "cell.0", "right") == "cell.1" and step(nodes, "cell.1", "down") == "cell.4"
+    assert step(nodes, "cell.5", "up") == "cell.2" and step(nodes, "cell.2", "right") == "cell.2"
+
+
+def test_a_column_asked_to_move_sideways_with_nothing_beside_it_stays():
+    nodes = focusables(laid_out(Column(children=[Button("a", "A"), Button("b", "B")])))
+    assert step(nodes, "a", "right") == "a" and step(nodes, "b", "left") == "b"

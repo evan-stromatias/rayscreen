@@ -66,6 +66,7 @@ Available scenes are:
 - `gallery`, `drag`, `drag-held`, `chat`, `board` — widgets and layout examples
 - `files`, `files-load`, `files-save` — file loading and directory selection
 - `keyboard` — a name field and the on-screen keyboard it opens for a gamepad
+- `nav` — a character creation form to move through with the keys or a gamepad, saying where each move goes
 
 Save a screenshot after the demo has drawn a few frames:
 
@@ -73,7 +74,11 @@ Save a screenshot after the demo has drawn a few frames:
 uv run rayscreen-demo --screen gallery --screenshot gallery.png
 ```
 
-Use `--size W,H` to change the window size and `--mouse X,Y` to hold the pointer at a particular position. The screenshot and mouse options are useful for repeatable visual checks.
+Use `--size W,H` to change the window size, `--mouse X,Y` to hold the pointer at a particular position, and `--focus ID` to start with the focus ring on a widget. The screenshot, mouse, and focus options are useful for repeatable visual checks:
+
+```bash
+uv run rayscreen-demo --screen nav --focus gender.prev --screenshot nav.png
+```
 
 ## Minimal application
 
@@ -168,7 +173,9 @@ One window per screen has keyboard focus. Clicking a window raises and focuses i
 
 ### Keyboard and gamepad navigation
 
-Pass `frame(manager, theme, nav)` a `Nav` built from the application's own key and gamepad bindings: a `move` direction, `activate`, and `back`. rayscreen moves a focus ring between enabled buttons, toggles, check boxes, dropdowns, sliders, text boxes, and actionable pictures by their positions on screen, and activating one does what a click would. Activating a text box edits it in place; a `TextBox(..., keyboard=True)` instead emits `Event(screen, box_id, None)` so the application can open an on-screen keyboard. A click still edits it in place.
+Pass `frame(manager, theme, nav)` a `Nav` built from the application's own key and gamepad bindings: a `move` direction, `activate`, and `back`. rayscreen moves a focus ring between enabled buttons, toggles, check boxes, dropdowns, sliders, text boxes, and actionable pictures, and activating one does what a click would.
+
+A move follows the widget tree. Left and right go along the focus's `Row` or `Split`, and up and down along its `Column`, to the next child that way that holds a focusable widget; a `Table` moves as a column of its rows. Entering a child, the focus lands on its first line that way, then on the widget most level with where it came from. At a row's end the focus leaves for an outer row or stays, rather than jumping to a nearer-looking widget in another line. A `Grid` or `Board` moves by its widgets' positions on screen, as does a move along an axis no container around the focus takes (right in a plain column). Activating a text box edits it in place; a `TextBox(..., keyboard=True)` instead emits `Event(screen, box_id, None)` so the application can open an on-screen keyboard. A click still edits it in place.
 
 `KeyboardWindow` is a modal on-screen keyboard: the text typed so far with a caret and a count, a grid of keys (`QWERTY` by default, or any `KeyLayout`), and Shift, Space, Backspace, and OK. The pad moves over the keys (left and right keep to a row, wrapping at its ends) and activates them; `Nav`'s `delete`, `space`, `shift`, and `confirm` fields carry its other buttons, and `back` deletes the last character or cancels on an empty line. The mouse and a physical keyboard work while it is open, and only the layout's characters can be typed. OK gives `Event(screen, window_id, text)`, or, with `box=`, sets that text box and gives the box's own event; cancelling gives `Event(screen, window_id, None)`.
 
