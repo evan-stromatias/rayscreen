@@ -129,9 +129,19 @@ def _centre(rect: Rect) -> tuple[float, float]:
     return rect.x + rect.width / 2, rect.y + rect.height / 2
 
 
+def _gap(low: float, size: float, other_low: float, other_size: float) -> float:
+    """How far apart two spans are along one axis: 0 where they overlap."""
+    return max(0.0, other_low - (low + size), low - (other_low + other_size))
+
+
 def step(nodes: list[Placed], focused: str | None, move: Direction) -> str | None:
     """Where `move` takes the focus from `focused`: the first widget when nothing has it (or what had it is gone);
-    else the nearest widget whose centre lies that way on screen, or `focused` itself at an edge."""
+    else the nearest widget whose centre lies that way on screen, or `focused` itself at an edge.
+
+    - Nearest: the distance that way between the centres, plus `ACROSS_WEIGHT` times the gap to the side between the
+      two widgets' edges (none where they overlap). A gap rather than the centres' offset, so a wide widget straight
+      below (a text box beside its label) is not passed over for a small one whose centre happens to be nearer.
+    - Ties go to the first in tree order (the left one of a row)."""
     if not nodes:
         return None
     current = next((placed for placed in nodes if placed.node.id == focused), None)
@@ -143,11 +153,13 @@ def step(nodes: list[Placed], focused: str | None, move: Direction) -> str | Non
         if placed is current:
             continue
         nx, ny = _centre(placed.rect)
-        along, across = {"up": (y - ny, nx - x), "down": (ny - y, nx - x),
-                         "left": (x - nx, ny - y), "right": (nx - x, ny - y)}[move]
+        along = {"up": y - ny, "down": ny - y, "left": x - nx, "right": nx - x}[move]
         if along <= 0:
             continue
-        score = along + ACROSS_WEIGHT * abs(across)
+        a, b = current.rect, placed.rect
+        across = (_gap(a.x, a.width, b.x, b.width) if move in ("up", "down")
+                  else _gap(a.y, a.height, b.y, b.height))
+        score = along + ACROSS_WEIGHT * across
         if score < best_score:
             best, best_score = placed.node.id, score
     return best

@@ -168,7 +168,7 @@ def test_the_focus_moves_over_the_key_rows_and_wraps_at_their_ends():
     assert window.state.focused == "kb.key.0.0"
     assert step(nodes, "kb.key.0.0", "down") == "kb.key.1.0"
     assert step(nodes, "kb.key.1.4", "right") == "kb.key.1.5"
-    assert step(nodes, "kb.key.3.0", "down") == "kb.shift"
+    assert step(nodes, "kb.key.3.0", "down") == "kb.space"  # straight below Z in this layout (Shift ends left of it)
     steered = window.navigate(Nav(move="left"), Typed())
     assert window.state.focused == "kb.key.0.9" and steered.nav.move is None
     window.navigate(Nav(move="right"), Typed())
