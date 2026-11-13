@@ -27,11 +27,13 @@ uv run rayscreen-demo                                          # interactive sce
 uv run rayscreen-demo --screen gallery                         # open one demo scene
 uv run rayscreen-demo --screen gallery --screenshot out.png    # save a visual check
 uv run rayscreen-demo --screen tooltip --mouse 500,350          # hold the pointer for a screenshot
+uv run rayscreen-demo --screen nav --focus gender.prev          # start with the focus ring on a widget
 uv build                                                       # build source and wheel distributions
 ```
 
 The demo's `--size W,H` sets the window size. Use `--screen NAME --screenshot PATH` for repeatable
-visual checks and `--mouse X,Y` when a scene needs a particular pointer position.
+visual checks, `--mouse X,Y` when a scene needs a particular pointer position, and `--focus ID` when it needs
+the keyboard or gamepad focus on a widget (the `nav` scene then shows where each move goes from it).
 
 ## Layout
 
@@ -48,9 +50,9 @@ The import package is in `src/rayscreen/`:
   screen's `hover` and `menu` hooks provide tooltips and context menus for application content.
 - `state.py`: `UiState`, holding cross-frame interaction state by widget ID: text editing, open
   dropdowns and menus, scroll offsets, split positions, focus, and picture dragging.
-- `navigation.py`: keyboard/gamepad-style navigation through `Nav`. Spatial focus movement, dropdown
-  and menu navigation, slider adjustments, and scrolling focused widgets into view are independent of
-  raylib input handling. A focused window sees the navigation first through `Window.navigate`.
+- `navigation.py`: keyboard/gamepad-style navigation through `Nav`. Focus movement along the tree's rows and
+  columns, dropdown and menu navigation, slider adjustments, and scrolling focused widgets into view are
+  independent of raylib input handling. A focused window sees the navigation first through `Window.navigate`.
 - `draw.py`: `frame(manager, theme)`, the per-frame walk that calls raygui and returns events no screen
   consumed. It also owns pointer routing, locking rules, overlays, popups, drag and drop, and the
   `mouse_free` check for application content beneath the UI.

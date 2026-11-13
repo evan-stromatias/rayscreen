@@ -1,7 +1,8 @@
 """rayscreen-demo: the library's checking harness. Navigates the demo's screens; screenshots of
 each scene are how the visual work is checked (`--screen NAME --screenshot out.png`). `--mouse X,Y`
 holds the mouse at a point, for a tooltip; the `tooltip` and `menu` scenes put it on the villager, and `drag-held`
-over a box of the pack, its second thing dragged there. A pad (and the arrow keys and Enter, while no box is being
+over a box of the pack, its second thing dragged there. `--focus ID` starts with the focus ring on a widget of the
+scene's screen, as if the keys had moved it there (the `nav` scene then says where each move goes from it). A pad (and the arrow keys and Enter, while no box is being
 edited) moves the focus (`read_nav`).
 """
 
@@ -17,6 +18,7 @@ from rayscreen.demo.screens import (
     FilesScreen,
     GalleryScreen,
     GameScreen,
+    NavScreen,
     PauseScreen,
     ScenesScreen,
     open_scene,
@@ -43,6 +45,7 @@ SCENES = (
     "drag-held",
     "chat",
     "keyboard",
+    "nav",
     "board",
     "files",
     "files-load",
@@ -52,7 +55,7 @@ DRAG_MOUSE = (250, 175)  # over the fourth box of the second row of `drag-held`
 
 
 def _unload_screen(screen: Screen) -> None:
-    if isinstance(screen, (DragScreen, GalleryScreen, BoardScreen, GameScreen, FilesScreen)):
+    if isinstance(screen, (DragScreen, GalleryScreen, BoardScreen, GameScreen, FilesScreen, NavScreen)):
         screen.unload()
 
 
@@ -119,6 +122,7 @@ def main() -> None:
     parser.add_argument("--screenshot", type=Path, help="Save a PNG after a few frames, then exit.")
     parser.add_argument("--size", default="1000,700", help="Window size, W,H (default 1000,700).")
     parser.add_argument("--mouse", help="Hold the mouse at X,Y (pixels), for a tooltip in a screenshot.")
+    parser.add_argument("--focus", help="Start with the focus ring on this widget id of the scene's screen.")
     args = parser.parse_args()
     width, _, height = args.size.partition(",")
     mouse: tuple[float, float] | None = None
@@ -137,6 +141,9 @@ def main() -> None:
     theme.apply_style()
     manager = ScreenManager()
     build_scene(manager, args.screen)
+    focus_screen = manager.top
+    if args.focus is not None and focus_screen is not None:
+        focus_screen.state.focused = args.focus
 
     running = True
     frames = 0
@@ -144,6 +151,8 @@ def main() -> None:
     while running and not rl.window_should_close():
         if mouse is not None:
             rl.set_mouse_position(int(mouse[0]), int(mouse[1]))
+        if args.focus is not None and args.screenshot is not None and focus_screen is not None:
+            focus_screen.state.show_focus = True  # the window opening moves the mouse, which would hide the ring
         rl.begin_drawing()
         rl.clear_background(theme.background)
         for screen in manager.visible():

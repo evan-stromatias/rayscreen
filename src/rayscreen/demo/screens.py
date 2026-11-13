@@ -15,6 +15,7 @@ import pyray as rl
 from rayscreen.data import data_tree
 from rayscreen.file_window import FileWindow, format_size
 from rayscreen.keyboard_window import KeyboardWindow
+from rayscreen.navigation import Direction, focusables, step
 from rayscreen.screen import Drop, Event, Screen, ScreenManager, Window
 from rayscreen.specs import (
     CHECK,
@@ -146,6 +147,7 @@ SCENE_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("drag-held", "Active drag ghost held under cursor"),
             ("chat", "Follow scroll & submit TextBox"),
             ("keyboard", "On-screen keyboard for a pad, from a TextBox"),
+            ("nav", "Character form moved through with the keys or a pad"),
             ("board", "Fixed-aspect Board with Placed slots"),
         ),
     ),
@@ -176,6 +178,8 @@ def open_scene(manager: ScreenManager, scene: str) -> None:
         manager.push(BoardScreen(manager))
     elif scene == "chat":
         manager.push(ChatScreen(manager))
+    elif scene == "nav":
+        manager.push(NavScreen(manager))
     elif scene == "keyboard":
         keyboard = KeyboardScreen(manager)
         manager.push(keyboard)
@@ -949,6 +953,136 @@ class KeyboardScreen(Screen):
         else:
             return False
         return True
+
+
+SKIN = ((246, 216, 192), (240, 196, 160), (224, 172, 132), (198, 136, 98), (166, 108, 70), (124, 80, 48), (88, 56, 32),
+        (60, 38, 24))
+HAIR_COLOUR = ((28, 24, 22), (58, 42, 34), (102, 72, 46), (164, 116, 64), (220, 178, 108), (232, 220, 190), (138, 138, 138),
+               (160, 56, 42), (64, 96, 160), (216, 136, 176))
+CHOICES = {
+    "gender": ("Female", "Male"),
+    "eyes": ("Dev eyes 1", "Round", "Narrow"),
+    "nose": ("Dot", "Button", "Long"),
+    "mouth": ("Simple", "Wide", "Small"),
+    "hair": ("Long", "Short", "Bun", "Bald"),
+}
+FACE_SLIDERS = (("eye_spacing", "Eye spacing"), ("eye_height", "Eye height"), ("eye_size", "Eye size"), ("mouth_height", "Mouth height"))
+EXPRESSIONS = ("Neutral", "Happy", "Sad", "Angry", "Surprised", "Blink")
+SWATCH_SIDE = 34.0
+MOVES: tuple[Direction, ...] = ("left", "right", "up", "down")
+
+
+def colour_texture(colour: tuple[int, int, int]) -> rl.Texture:
+    """A one-colour square, a swatch's picture (call with the window open)."""
+    image = rl.gen_image_color(int(SWATCH_SIDE), int(SWATCH_SIDE), rl.Color(*colour, 255))
+    texture = rl.load_texture_from_image(image)
+    rl.unload_image(image)
+    return texture
+
+
+class NavScreen(Screen):
+    """A character creation form to move through with the keys or a pad, laid out as a game's: names beside their
+    controls in one stretch table, `<  value  >` choosers with rows of small swatches between them, sliders, and a
+    full-width row of expression toggles.
+
+    - The swatches lie nearer a chooser's `<` than its `>` does, and the toggles grow with the window while the gaps
+      between lines do not: a move chosen by distance on screen alone left both rows. The tree keeps it to them.
+    - The muted line at the bottom says where each move goes from the focus, so a screenshot taken with `--focus`
+      checks the rule without pressing a key."""
+
+    def __init__(self, manager: ScreenManager) -> None:
+        self.manager = manager
+        self.choice = dict.fromkeys(CHOICES, 0)
+        self.colour = {"skin": 1, "hair_colour": 1}
+        self.textures = {"skin": [colour_texture(colour) for colour in SKIN],
+                         "hair_colour": [colour_texture(colour) for colour in HAIR_COLOUR]}
+        self.where = Label("nav.where", "", size=SMALL, tone="muted")
+        super().__init__("nav", self.tree(), margin=2 * PAD)
+
+    def chooser(self, name: str) -> Row:
+        value = CHOICES[name][self.choice[name]]
+        return Row(children=[Button(f"{name}.prev", "<", width=44), Label(f"{name}.value", value, align="center", weight=1),
+                             Button(f"{name}.next", ">", width=44)])
+
+    def swatches(self, name: str) -> Row:
+        return Row(children=[
+            Picture(f"{name}.{i}", texture, (SWATCH_SIDE, SWATCH_SIDE), clickable=True, framed=i == self.colour[name],
+                    accent=True, width=SWATCH_SIDE, height=SWATCH_SIDE)
+            for i, texture in enumerate(self.textures[name], start=1)
+        ])
+
+    def tree(self) -> Column:
+        def line(name: str, label: str, control: Node) -> list[Node]:
+            return [Label(f"{name}.label", label, size=SMALL), control]
+
+        def heading(name: str, text: str) -> list[Node]:
+            return [Label(f"{name}.heading", text, size=SMALL, tone="muted")]
+
+        sliders = [line(name, label, Slider(name, "", 1.0, 0.0, 2.0, format="{:.2f}", weight=1)) for name, label in FACE_SLIDERS]
+        expressions = Row(children=[Toggle(f"expression.{name.lower()}", name, active=name == "Neutral", weight=1) for name in EXPRESSIONS])
+        form = Table([
+            line("name", "Name", TextBox("name", "Evan", weight=1)),
+            line("gender", "Gender", self.chooser("gender")),
+            line("skin", "Skin", self.swatches("skin")),
+            [Separator()],
+            heading("face", "Face"),
+            line("eyes", "Eyes", self.chooser("eyes")),
+            line("nose", "Nose", self.chooser("nose")),
+            line("mouth", "Mouth", self.chooser("mouth")),
+            *sliders,
+            heading("expression", "Try an expression (not saved)"),
+            [expressions],
+            [Separator()],
+            heading("hair", "Hair"),
+            line("hair", "Hair", self.chooser("hair")),
+            line("hair_colour", "Colour", self.swatches("hair_colour")),
+        ], gap=PAD, row_gap=GAP, stretch=True)
+        return Column(children=[
+            Scroll("nav.scroll", form, weight=1),
+            self.where,
+            Row(children=[Fill(), Button("back", "Back")]),
+        ], gap=2 * GAP)
+
+    def update(self, dt: float) -> None:
+        focused = self.state.focused
+        if focused is None:
+            self.where.text = "Press an arrow key or the d-pad to show the focus."
+            return
+        nodes = focusables(self.root, self.state.scroll_offset)
+        self.where.text = f"From {focused}:  " + "   ".join(f"{move} {step(nodes, focused, move)}" for move in MOVES)
+
+    def handle(self, event: Event) -> bool:
+        name, _, part = event.widget.rpartition(".")
+        if name in CHOICES and part in ("prev", "next"):
+            count = len(CHOICES[name])
+            self.choice[name] = (self.choice[name] + (1 if part == "next" else -1)) % count
+            value = self.find(f"{name}.value")
+            if isinstance(value, Label):
+                value.text = CHOICES[name][self.choice[name]]
+        elif name in self.colour:
+            self.colour[name] = int(part)
+            for i in range(1, len(self.textures[name]) + 1):
+                swatch = self.find(f"{name}.{i}")
+                if isinstance(swatch, Picture):
+                    swatch.framed = i == self.colour[name]
+        elif name == "expression":  # one expression at a time, and always one
+            for expression in EXPRESSIONS:
+                toggle = self.find(f"expression.{expression.lower()}")
+                if isinstance(toggle, Toggle):
+                    toggle.active = toggle.id == event.widget
+        elif event.widget == "back":
+            self.manager.pop()
+        else:
+            slider = self.find(event.widget)
+            if not isinstance(slider, Slider) or not isinstance(event.value, float):
+                return False
+            slider.value = event.value
+        return True
+
+    def unload(self) -> None:
+        for textures in self.textures.values():
+            for texture in textures:
+                rl.unload_texture(texture)
 
 
 BUNDLE_FILES = ("preview.png", "manifest.json", "readme.txt")
