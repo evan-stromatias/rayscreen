@@ -55,7 +55,7 @@ from rayscreen.specs import (
     Tone,
     Tooltip,
 )
-from rayscreen.state import Dragging
+from rayscreen.state import Dragging, OpenList
 
 SAVES = tuple(f"Save {i:2d} - Ashford, day {i}" for i in range(1, 13))
 
@@ -124,6 +124,7 @@ SCENE_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (
             ("main", "Main menu screen"),
             ("settings", "Settings panels, sliders, toggles & dropdown"),
+            ("settings-large", "Settings at a TV's text scale, its dropdown open"),
             ("load", "Save-game ListView selection"),
         ),
     ),
@@ -169,8 +170,8 @@ def open_scene(manager: ScreenManager, scene: str) -> None:
         manager.push(ScenesScreen(manager))
     elif scene == "main":
         manager.push(MainScreen(manager))
-    elif scene == "settings":
-        manager.push(SettingsScreen(manager))
+    elif scene in ("settings", "settings-large"):
+        manager.push(SettingsScreen(manager, large=scene == "settings-large"))
     elif scene == "load":
         manager.push(LoadScreen(manager))
     elif scene == "gallery":
@@ -323,11 +324,16 @@ def setting(label: str, control: Toggle | Dropdown) -> Row:
     return Row(children=[Label(f"{control.id}-label", label), Fill(), control])
 
 
-class SettingsScreen(Screen):
-    """The panels scroll; the heading and the Back button stay put above and below them."""
+LARGE_SETTINGS = 2.0  # the settings panels' text scale, as a game played on a TV shows them
 
-    def __init__(self, manager: ScreenManager) -> None:
+
+class SettingsScreen(Screen):
+    """The panels scroll; the heading and the Back button stay put above and below them. `large` draws the panels at
+    a TV's `text_scale` and opens the Quality list once it is laid out, so a screenshot shows the list grown too."""
+
+    def __init__(self, manager: ScreenManager, large: bool = False) -> None:
         self.manager = manager
+        self.open_quality = large
         super().__init__(
             "settings",
             Column(
@@ -362,6 +368,7 @@ class SettingsScreen(Screen):
                                 ),
                             ],
                             gap=2 * GAP,
+                            text_scale=LARGE_SETTINGS if large else None,
                         ),
                         weight=1,
                     ),
@@ -371,6 +378,12 @@ class SettingsScreen(Screen):
             ),
             margin=2 * PAD,
         )
+
+    def update(self, dt: float) -> None:
+        quality = self.find("quality")
+        if self.open_quality and isinstance(quality, Dropdown) and quality.rect.width > 0:  # laid out by the last frame
+            self.state.open_list = OpenList(quality.id, quality.rect, quality.choices, quality.current)
+            self.open_quality = False
 
     def handle(self, event: Event) -> bool:
         if event.widget == "back":

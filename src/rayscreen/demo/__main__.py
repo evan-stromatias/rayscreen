@@ -32,6 +32,7 @@ SCENES = (
     "scenes",
     "main",
     "settings",
+    "settings-large",
     "load",
     "game",
     "quests",

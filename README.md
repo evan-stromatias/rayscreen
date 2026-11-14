@@ -60,7 +60,8 @@ uv run rayscreen-demo --screen gallery
 Available scenes are:
 
 - `scenes` — the scene launcher
-- `main`, `settings`, `load` — menus and screen-stack navigation
+- `main`, `settings`, `load` — menus and screen-stack navigation; `settings-large` shows the settings at a TV's text
+  scale with the Quality dropdown open, its list grown to match
 - `game`, `quests`, `pause`, `dialog`, `minimized` — overlays, floating windows, and modal dialogs
 - `tooltip`, `menu` — hover tooltips and context menus
 - `gallery`, `drag`, `drag-held`, `chat`, `board` — widgets and layout examples
@@ -153,7 +154,7 @@ A screen's content is a tree of dataclasses from `rayscreen.specs`. Widgets and 
 
 Weighted children share remaining space. Fixed-size spacers, minimum split sizes, table column alignment, rich-text wrapping, and scroll padding provide finer control where needed.
 
-A `Column` or `Row` with `text_scale` draws the text under it larger (or smaller), down to the next container that sets its own: labels, rich text, the text of buttons, toggles, check boxes, sliders, text boxes, dropdowns, and panel titles, with the icons in a widget's text, and a picture's caption and badge. Default row heights and widths sized to text grow to fit; heights given explicitly, gaps, pads, and popups stay as they are. `Button`, `Toggle`, `Slider`, and `TextBox` also take their own text `size`, which wins over the scale. `layout.text_size()` gives the size a node's text is drawn at. The bundled font is drawn on a 16 px grid, so whole scales are the crispest.
+A `Column` or `Row` with `text_scale` draws the text under it larger (or smaller), down to the next container that sets its own: labels, rich text, the text of buttons, toggles, check boxes, sliders, text boxes, dropdowns and the rows of their open lists, and panel titles, with the icons in a widget's text, and a picture's caption and badge. Default row heights and widths sized to text grow to fit; heights given explicitly, gaps, pads, context menus, and tooltips stay as they are. `Button`, `Toggle`, `Slider`, and `TextBox` also take their own text `size`, which wins over the scale. `layout.text_size()` gives the size a node's text is drawn at. The bundled font is drawn on a 16 px grid, so whole scales are the crispest.
 
 ### Screens and navigation
 

@@ -23,13 +23,16 @@ FOLLOW_SLACK = 1.0  # pixels above its bottom a follow scroll still counts as at
 
 @dataclass(slots=True)
 class OpenList:
-    """The dropdown whose list is open: where its button was drawn, what it offers, and the choice with the keys' or
-    the pad's focus (`navigation.list_step`), its current one as it opens."""
+    """The dropdown whose list is open: where its button was drawn, what it offers, the choice with the keys' or
+    the pad's focus (`navigation.list_step`), its current one as it opens, and the `text_scale` its button is drawn
+    under, which its rows and their text grow by (the dropdown sets it each frame it draws, so a list the pad opened
+    takes it too)."""
 
     id: str
     anchor: Rect
     choices: tuple[str, ...]
     focused: int | None = None
+    scale: float = 1.0
 
 
 @dataclass(slots=True)
