@@ -33,7 +33,9 @@ from rayscreen.layout import (
     measure,
     menu_size,
     picture_rect,
+    popup_row,
     scale_in,
+    scaled,
     split_bar,
     split_ratio,
     text_lines,
@@ -270,7 +272,7 @@ def _navigate_list(manager: ScreenManager, owner: str, root: Node, state: UiStat
     shows."""
     open_list = state.open_list
     assert open_list is not None
-    layout = _open_list_layout(open_list)
+    layout = _open_list_layout(open_list, float(rl.get_screen_height()))
     if nav.move is not None:
         open_list.focused = list_step(len(layout.shown), open_list.focused, nav.move)
     elif nav.activate and open_list.focused is not None and open_list.focused < len(layout.shown):
@@ -282,8 +284,8 @@ def _navigate_list(manager: ScreenManager, owner: str, root: Node, state: UiStat
         return
     if state.show_focus and open_list.focused is not None and open_list.focused < len(layout.shown):
         bounds = layout.bounds
-        y = bounds.y + 1 + open_list.focused * POPUP_ROW
-        rl.draw_rectangle_lines_ex(rl.Rectangle(bounds.x, y - 1, bounds.width, ROW + 2), 2, theme.accent)
+        y = bounds.y + 1 + open_list.focused * popup_row(layout.row)
+        rl.draw_rectangle_lines_ex(rl.Rectangle(bounds.x, y - 1, bounds.width, layout.row + 2), 2, theme.accent)
 
 
 def _navigate_menu(manager: ScreenManager, screen: Screen, theme: Theme, nav: Nav, events: list[Event], ring: bool) -> None:
@@ -703,14 +705,15 @@ def _over_widget(root: Node, mouse: rl.Vector2, solid: bool = False) -> bool:
 
 def _draw_open_list(owner: str, root: Node, state: UiState, theme: Theme, events: list[Event]) -> None:
     """The open dropdown's list, over everything else; a click outside closes it. It opens on the
-    side of its button with more room, and a list too long for that side is cut, its last row "...".
+    side of its button with more room, and a list too long for that side is cut, its last row "...". Its rows and
+    their text grow by the `text_scale` its button is drawn under.
     """
     open_list = state.open_list
     if open_list is None:
         return
     anchor = open_list.anchor
-    bounds, shown, cut = _open_list_layout(open_list)
-    chosen = _draw_choices(bounds, shown, cut, theme)
+    bounds, shown, cut, row = _open_list_layout(open_list, float(rl.get_screen_height()))
+    chosen = _draw_choices(bounds, shown, cut, theme, row=row, size=scaled(theme.text, open_list.scale))
     if chosen is not None:
         _choose(owner, root, state, events, shown[chosen])
         return
@@ -726,20 +729,23 @@ class _ListLayout(NamedTuple):
     bounds: rl.Rectangle
     shown: tuple[str, ...]
     cut: bool  # a last row of "..." for the choices that did not fit
+    row: float  # the height of a choice's button: `ROW` grown by the list's text scale
 
 
-def _open_list_layout(open_list: OpenList) -> _ListLayout:
-    """Where the open dropdown's list sits: on the side of its button with more room, cut when too long for it."""
+def _open_list_layout(open_list: OpenList, screen_height: float) -> _ListLayout:
+    """Where the open dropdown's list sits: on the side of its button with more room, cut when too long for it, its
+    rows `ROW` grown by the text scale its button is drawn under (`popup_row` apart)."""
     anchor = open_list.anchor
-    screen_height = rl.get_screen_height()
+    row = ROW * open_list.scale
+    pitch = popup_row(row)
     room = max(screen_height - (anchor.y + anchor.height + 2), anchor.y - 2)
-    fits = max(2, int((room - 2) // POPUP_ROW))
+    fits = max(2, int((room - 2) // pitch))
     cut = len(open_list.choices) > fits
     shown = open_list.choices[: fits - 1] if cut else open_list.choices
-    bounds = rl.Rectangle(anchor.x, anchor.y + anchor.height + 2, anchor.width, (len(shown) + cut) * POPUP_ROW + 2)
+    bounds = rl.Rectangle(anchor.x, anchor.y + anchor.height + 2, anchor.width, (len(shown) + cut) * pitch + 2)
     if bounds.y + bounds.height > screen_height:  # open upwards near the bottom
         bounds.y = anchor.y - bounds.height - 2
-    return _ListLayout(bounds, shown, cut)
+    return _ListLayout(bounds, shown, cut, row)
 
 
 def _choose(owner: str, root: Node, state: UiState, events: list[Event], choice: str) -> None:
@@ -804,11 +810,16 @@ def _draw_choices(
     enabled: Sequence[bool] | None = None,
     title: str | None = None,
     gap: float = 0.0,
+    row: float = ROW,
+    size: int | None = None,
 ) -> int | None:
-    """A popup list (an open dropdown, a context menu): a bordered box of `POPUP_ROW` buttons, read
-    from the left, under an optional title row and `gap` pixels left for a menu's info; the index of the
-    choice clicked. A disabled choice is greyed and never chosen; `cut` adds a last row reading "..." for
-    the choices that did not fit."""
+    """A popup list (an open dropdown, a context menu): a bordered box of buttons `row` high and `popup_row` apart,
+    read from the left, their text at `size` (the theme's when None), under an optional title row and `gap` pixels
+    left for a menu's info; the index of the choice clicked. A disabled choice is greyed and never chosen; `cut`
+    adds a last row reading "..." for the choices that did not fit. A dropdown under a `text_scale` passes its
+    grown row and size; a context menu keeps the theme's."""
+    size = theme.text if size is None else size
+    pitch = popup_row(row)
     rl.draw_rectangle_rec(bounds, theme.background)
     rl.draw_rectangle_lines_ex(bounds, 1, theme.ink)
     top = bounds.y + 1
@@ -818,15 +829,15 @@ def _draw_choices(
         rl.draw_line_ex(rl.Vector2(bounds.x + 1, top - 1), rl.Vector2(bounds.x + bounds.width - 1, top - 1), 1.0, theme.muted)
     top += gap
     if cut:
-        last = top + len(choices) * POPUP_ROW
-        theme.draw_text("...", bounds.x + PAD, last + (ROW - theme.text) / 2, theme.text, theme.muted)
+        last = top + len(choices) * pitch
+        theme.draw_text("...", bounds.x + PAD, last + (row - size) / 2, size, theme.muted)
     chosen = None
-    with _left_aligned_buttons():
+    with _left_aligned_buttons(), _text_at(theme, size):
         for i, choice in enumerate(choices):
             disabled = enabled is not None and not enabled[i]
             if disabled:
                 rl.gui_disable()
-            if rl.gui_button(rl.Rectangle(bounds.x + 1, top + i * POPUP_ROW, bounds.width - 2, ROW), choice) and not disabled:
+            if rl.gui_button(rl.Rectangle(bounds.x + 1, top + i * pitch, bounds.width - 2, row), choice) and not disabled:
                 chosen = i
             if disabled:
                 rl.gui_enable()
@@ -1204,10 +1215,12 @@ class _Drawer:
     def _dropdown(self, spec: Dropdown, rect: rl.Rectangle) -> None:
         """A button showing the current choice; the choice comes back from the open list."""
         state = self.state
+        is_open = state.open_list is not None and state.open_list.id == spec.id
+        if is_open:  # its list's rows and text grow as its own do, scrolled out of view too
+            state.open_list.scale = self.scale
         with self._clipped(rect) as draw_it:
             if not draw_it:
                 return
-            is_open = state.open_list is not None and state.open_list.id == spec.id
             current = spec.choices[spec.current] if spec.choices else ""
             # the choice reads from the left and the arrow sits at the right, as in a native dropdown
             size = self._size(spec)
@@ -1220,7 +1233,7 @@ class _Drawer:
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
             if clicked and spec.enabled:
-                state.open_list = OpenList(spec.id, Rect(rect.x, rect.y, rect.width, rect.height), spec.choices, spec.current)
+                state.open_list = OpenList(spec.id, Rect(rect.x, rect.y, rect.width, rect.height), spec.choices, spec.current, self.scale)
 
     def _progress(self, spec: Progress, rect: rl.Rectangle) -> None:
         """raygui's bar, or, vertical or coloured (raygui's has neither), the theme's panel filled by the value in

@@ -59,6 +59,11 @@ type MeasureText = Callable[[str, int], float]
 SIZED = (Button, Toggle, Slider, TextBox)  # the widgets with a text `size` of their own
 
 
+def popup_row(row: float = ROW) -> float:
+    """How far apart a popup list's rows are when its buttons are `row` high: the button and the gap below it."""
+    return row + POPUP_ROW - ROW
+
+
 def scale_in(node: Node, scale: float) -> float:
     """The text scale under `node`: its own `text_scale` (a column's or a row's), else the one in force."""
     if isinstance(node, Column | Row) and node.text_scale is not None:

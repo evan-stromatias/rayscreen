@@ -221,7 +221,7 @@ class Dropdown:
     """A button showing the current choice that opens a list; emits the choice. `current` is an
     index into `choices`, updated when a choice is made. One that is not `enabled` is greyed and does
     not open; a `tooltip` shows while the mouse rests on it (why it is not enabled). Its text and default height
-    (`ROW` when None) grow with the `text_scale`; its open list stays at the theme's size."""
+    (`ROW` when None) grow with the `text_scale`, and so do its open list's rows and their text."""
 
     id: str
     choices: tuple[str, ...]

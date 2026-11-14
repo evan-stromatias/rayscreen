@@ -143,3 +143,7 @@ YEAR-MONTH-DAY, SEMANTIC-VERSION:
 ```
 
 `scripts/release_bump.py` does the bookkeeping and is what to extend when the format changes.
+
+After implementing a feature or bug fix, print a changelog for it in Markdown in your reply: a suggested PR title
+with its `major: `/`minor: `/`patch: ` prefix, then the bullet lines for the PR body, in the form above. Print it
+only; the release workflow writes `CHANGELOG.md`.
