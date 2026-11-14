@@ -846,6 +846,21 @@ def _disabled(disabled: bool) -> Iterator[None]:
 
 
 @contextmanager
+def _gui_focused(focused: bool) -> Iterator[None]:
+    """raygui's controls drawn inside take its focused colours, as under the mouse, when `focused`: the keys' or the
+    pad's focus then reads as clearly as a hover, not only by the thin ring around it."""
+    if not focused:
+        yield
+        return
+    state = rl.gui_get_state()
+    rl.gui_set_state(rl.GuiState.STATE_FOCUSED)
+    try:
+        yield
+    finally:
+        rl.gui_set_state(state)
+
+
+@contextmanager
 def _text_at(theme: Theme, size: int) -> Iterator[None]:
     """raygui's controls drawn inside write at `size`, in the theme's font loaded at it, and draw the icons in their
     text at its `icon_scale`. raygui's style is one for every control, so a widget under a `text_scale` (or with a
@@ -961,6 +976,10 @@ class _Drawer:
         self.scale = scale_in(node, outer)
         self._draw(node)
         self.scale = outer
+
+    def _focused(self, spec: Button | Toggle | CheckBox | Dropdown) -> bool:
+        """`spec` has the keys' or the pad's focus and its ring shows, on a screen or window taking input."""
+        return spec.enabled and self.state.show_focus and self.state.focused == spec.id and not rl.gui_is_locked()
 
     def _size(self, node: Node) -> int:
         """The size `node`'s text is drawn at, as the layout measured it but from the theme's text size."""
@@ -1081,7 +1100,8 @@ class _Drawer:
             if not draw_it:
                 return
             with (_disabled(not spec.enabled), _left_aligned_buttons() if spec.align == "left" else nullcontext(),
-                  _error_buttons(self.theme) if spec.invalid else nullcontext(), _text_at(self.theme, self._size(spec))):
+                  _error_buttons(self.theme) if spec.invalid else nullcontext(), _text_at(self.theme, self._size(spec)),
+                  _gui_focused(self._focused(spec))):
                 clicked = rl.gui_button(rect, spec.text)
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
@@ -1094,7 +1114,7 @@ class _Drawer:
                 return
             value = rl.ffi.new("bool *", spec.active)
             left = _left_aligned_buttons(rl.GuiControl.TOGGLE) if spec.align == "left" else nullcontext()
-            with _disabled(not spec.enabled), left, _text_at(self.theme, self._size(spec)):
+            with _disabled(not spec.enabled), left, _text_at(self.theme, self._size(spec)), _gui_focused(self._focused(spec)):
                 rl.gui_toggle(rect, spec.text, value)
             if spec.tooltip is not None and not rl.gui_is_locked() and _contains(rect, rl.get_mouse_position()):
                 self.tooltip = spec.tooltip
@@ -1109,7 +1129,7 @@ class _Drawer:
             side = CHECK * widget_scale(spec, self.scale)
             box = rl.Rectangle(rect.x, rect.y + (rect.height - side) / 2, side, side)
             value = rl.ffi.new("bool *", spec.checked)
-            with _disabled(not spec.enabled), _text_at(self.theme, self._size(spec)):
+            with _disabled(not spec.enabled), _text_at(self.theme, self._size(spec)), _gui_focused(self._focused(spec)):
                 rl.gui_check_box(box, spec.text, value)
             if spec.enabled and value[0] != spec.checked:
                 spec.checked = value[0]
@@ -1191,7 +1211,7 @@ class _Drawer:
             current = spec.choices[spec.current] if spec.choices else ""
             # the choice reads from the left and the arrow sits at the right, as in a native dropdown
             size = self._size(spec)
-            with _disabled(not spec.enabled), _left_aligned_buttons(), _text_at(self.theme, size):
+            with _disabled(not spec.enabled), _left_aligned_buttons(), _text_at(self.theme, size), _gui_focused(self._focused(spec)):
                 clicked = rl.gui_button(rect, current)
             icon = ICON * icon_scale(size)
             icon_x, icon_y = rect.x + rect.width - PAD - icon, rect.y + (rect.height - icon) / 2
