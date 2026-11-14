@@ -1,3 +1,8 @@
+2026-11-14, 0.47.0:
+  - better gamepad focus indicator
+  - the keys' or the pad's focus reads like a hover
+  - A focused `Button`, `Toggle`, `CheckBox` or `Dropdown` is drawn in raygui's focused colours while its ring shows, as under the mouse, not only ringed; not on a locked screen
+
 2026-11-13, 0.46.0:
   - a count badge on a picture
   - Add `Picture(badge=...)`: a short text such as a stack's count, drawn in the bottom right corner over the texture on a translucent plate of the theme's background
