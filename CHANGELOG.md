@@ -1,3 +1,12 @@
+2026-11-14, 0.48.0:
+  - an open dropdown list that follows the text_scale
+  - A dropdown's open list now grows with the `text_scale` its button is drawn under: rows as tall as the button, choices and the "..." row at its text size
+  - The list's fit-or-cut decision and the keys'/pad's focus ring use the grown row height, so a scaled list opens on the right side and is cut correctly
+  - `OpenList` gains a `scale` field (default 1.0), set by the dropdown each frame, so a list opened by the keys or a pad scales too
+  - New `layout.popup_row` helper for the spacing between popup rows; context menus keep the theme's size
+  - New `settings-large` demo scene: the settings at text scale 2 with the Quality list open
+  - README and `Dropdown` docstring describe the scaled list
+
 2026-11-14, 0.47.0:
   - better gamepad focus indicator
   - the keys' or the pad's focus reads like a hover
